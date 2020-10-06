@@ -10,7 +10,7 @@ import java.util.Map;
 
 public class MarkLogicSinkConnector extends SinkConnector {
 
-	static final String MARKLOGIC_SINK_CONNECTOR_VERSION = "0.9.0";
+	static final String MARKLOGIC_SINK_CONNECTOR_VERSION = "1.4.0";
 
 	private Map<String, String> config;
 

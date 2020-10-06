@@ -7,6 +7,9 @@ import com.marklogic.client.document.ServerTransform;
 import com.marklogic.client.ext.DatabaseClientConfig;
 import com.marklogic.client.ext.DefaultConfiguredDatabaseClientFactory;
 import com.marklogic.kafka.connect.DefaultDatabaseClientConfigBuilder;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
@@ -30,9 +33,43 @@ public class MarkLogicSinkTask extends SinkTask {
 	private WriteBatcher writeBatcher;
 	private SinkRecordConverter sinkRecordConverter;
 
+	protected Integer getIntConfigValue(String key, final Map<String, String> config) {
+		ConfigDef.ConfigKey configKey = MarkLogicSinkConfig.CONFIG_DEF.configKeys().get(key);
+		if(configKey == null || configKey.type() != ConfigDef.Type.INT) {
+			throw new RuntimeException("Tried to retrieve a ConfigKey of type INT for " + key + " when the value provided is a " + configKey.type().name());
+		}
+
+		String value = config.get(key);
+		if(value != null) {
+			return Integer.parseInt(value);
+		} else if(configKey.hasDefault()) {
+			return (Integer) configKey.defaultValue;
+		} else {
+			return null;
+		}
+	}
+
+	protected Boolean getBooleanConfigValue(String key, final Map<String, String> config) {
+		ConfigDef.ConfigKey configKey = MarkLogicSinkConfig.CONFIG_DEF.configKeys().get(key);
+		if(configKey == null || configKey.type() != ConfigDef.Type.BOOLEAN) {
+			throw new RuntimeException("Tried to retrieve a ConfigKey of type IBOOLEANT for " + key + " when the value provided is a " + configKey.type().name());
+		}
+
+		String value = config.get(key);
+		if(value != null) {
+			return Boolean.parseBoolean(value);
+		} else if(configKey.hasDefault()) {
+			return (Boolean) configKey.defaultValue;
+		} else {
+			return null;
+		}
+	}
+
 	@Override
 	public void start(final Map<String, String> config) {
 		logger.info("Starting");
+
+		config.keySet().forEach(key -> logger.info("Config: {} : {}", key, config.get(key)));
 
 		sinkRecordConverter = new DefaultSinkRecordConverter(config);
 
@@ -40,9 +77,10 @@ public class MarkLogicSinkTask extends SinkTask {
 		databaseClient = new DefaultConfiguredDatabaseClientFactory().newDatabaseClient(databaseClientConfig);
 
 		dataMovementManager = databaseClient.newDataMovementManager();
+
 		writeBatcher = dataMovementManager.newWriteBatcher()
-			.withBatchSize(Integer.parseInt(config.get(MarkLogicSinkConfig.DMSDK_BATCH_SIZE)))
-			.withThreadCount(Integer.parseInt(config.get(MarkLogicSinkConfig.DMSDK_THREAD_COUNT)));
+				.withBatchSize(getIntConfigValue(MarkLogicSinkConfig.DMSDK_BATCH_SIZE, config))
+				.withThreadCount(getIntConfigValue(MarkLogicSinkConfig.DMSDK_THREAD_COUNT, config));
 
 		ServerTransform transform = buildServerTransform(config);
 		if (transform != null) {
@@ -160,6 +198,18 @@ public class MarkLogicSinkTask extends SinkTask {
 				}
 			}
 		});
+
+//		if (writeBatcher != null) {
+//			writeBatcher.flushAsync();
+//		} else {
+//			logger.warn("writeBatcher is null - ignore this is you are running unit tests, otherwise this is a problem.");
+//		}
+	}
+
+	@Override
+	public void flush(Map<TopicPartition, OffsetAndMetadata> currentOffsets) {
+		super.flush(currentOffsets);
+//		logger.info("Flushing records.");
 
 		if (writeBatcher != null) {
 			writeBatcher.flushAsync();
