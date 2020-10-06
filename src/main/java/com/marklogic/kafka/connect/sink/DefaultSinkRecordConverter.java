@@ -35,24 +35,20 @@ public class DefaultSinkRecordConverter implements SinkRecordConverter {
 
     private Converter converter;
 
-    public DefaultSinkRecordConverter(Map<String, String> kafkaConfig) {
+    public DefaultSinkRecordConverter(Map<String, Object> kafkaConfig) {
 
-        String val = kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_COLLECTIONS_ADD_TOPIC);
-        if (val != null && val.trim().length() > 0) {
-            addTopicToCollections = Boolean.parseBoolean(val.trim());
-        }
-
+        addTopicToCollections = (Boolean) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_COLLECTIONS_ADD_TOPIC);
         documentWriteOperationBuilder = new DocumentWriteOperationBuilder()
-                .withCollections(kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_COLLECTIONS))
-                .withPermissions(kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_PERMISSIONS))
-                .withUriPrefix(kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_URI_PREFIX))
-                .withUriSuffix(kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_URI_SUFFIX));
+                .withCollections((String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_COLLECTIONS))
+                .withPermissions((String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_PERMISSIONS))
+                .withUriPrefix((String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_URI_PREFIX))
+                .withUriSuffix((String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_URI_SUFFIX));
 
-        val = kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_FORMAT);
+        String val = (String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_FORMAT);
         if (val != null && val.trim().length() > 0) {
             format = Format.valueOf(val.toUpperCase());
         }
-        val = kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_MIMETYPE);
+        val = (String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_MIMETYPE);
         if (val != null && val.trim().length() > 0) {
             mimeType = val;
         }
@@ -75,7 +71,7 @@ public class DefaultSinkRecordConverter implements SinkRecordConverter {
      */
     protected DocumentMetadataHandle addTopicToCollections(String topic, Boolean addTopicToCollections) {
         DocumentMetadataHandle metadata = new DocumentMetadataHandle();
-        if (addTopicToCollections) {
+        if (addTopicToCollections != null && addTopicToCollections) {
             metadata.getCollections().add(topic);
         }
         return metadata;

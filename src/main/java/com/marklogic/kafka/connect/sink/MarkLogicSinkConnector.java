@@ -20,8 +20,8 @@ public class MarkLogicSinkConnector extends SinkConnector {
 	}
 
 	@Override
-	public void start(final Map<String, String> arg0) {
-		config = arg0;
+	public void start(final Map<String, String> config) {
+		this.config = config;
 	}
 
 	@Override

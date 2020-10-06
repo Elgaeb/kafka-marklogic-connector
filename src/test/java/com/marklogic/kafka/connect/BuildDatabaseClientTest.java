@@ -13,21 +13,39 @@ import java.util.Map;
 public class BuildDatabaseClientTest {
 
     @Test
-    public void testSslConfiguration() {
+    public void testSimpleSslConfiguration() {
         DatabaseClient databaseClient;
 
-        Map<String, String> config = new HashMap<>();
+        Map<String, Object> config = new HashMap<>();
         config.put(MarkLogicSinkConfig.CONNECTION_HOST, "localhost");
-        config.put(MarkLogicSinkConfig.CONNECTION_PORT, "8002");
+        config.put(MarkLogicSinkConfig.CONNECTION_PORT, 8002);
         config.put(MarkLogicSinkConfig.CONNECTION_USERNAME, "admin");
         config.put(MarkLogicSinkConfig.CONNECTION_PASSWORD, "admin");
         config.put(MarkLogicSinkConfig.CONNECTION_SECURITY_CONTEXT_TYPE, "DIGEST");
         config.put(MarkLogicSinkConfig.CONNECTION_TYPE, "DIRECT");
-        config.put(MarkLogicSinkConfig.CONNECTION_SIMPLE_SSL, "true");
+        config.put(MarkLogicSinkConfig.SSL_CONNECTION_TYPE, "simple");
 
         DatabaseClientConfig databaseClientConfig = new DefaultDatabaseClientConfigBuilder().buildDatabaseClientConfig(config);
         databaseClient = new DefaultConfiguredDatabaseClientFactory().newDatabaseClient(databaseClientConfig);
 
+        Assertions.assertNotNull(databaseClient);
+    }
+
+    @Test
+    public void testDefaultSslConfiguration() {
+        DatabaseClient databaseClient;
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(MarkLogicSinkConfig.CONNECTION_HOST, "localhost");
+        config.put(MarkLogicSinkConfig.CONNECTION_PORT, 8002);
+        config.put(MarkLogicSinkConfig.CONNECTION_USERNAME, "admin");
+        config.put(MarkLogicSinkConfig.CONNECTION_PASSWORD, "admin");
+        config.put(MarkLogicSinkConfig.CONNECTION_SECURITY_CONTEXT_TYPE, "DIGEST");
+        config.put(MarkLogicSinkConfig.CONNECTION_TYPE, "DIRECT");
+        config.put(MarkLogicSinkConfig.SSL_CONNECTION_TYPE, "default");
+
+        DatabaseClientConfig databaseClientConfig = new DefaultDatabaseClientConfigBuilder().buildDatabaseClientConfig(config);
+        databaseClient = new DefaultConfiguredDatabaseClientFactory().newDatabaseClient(databaseClientConfig);
 
         Assertions.assertNotNull(databaseClient);
     }

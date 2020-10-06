@@ -33,41 +33,11 @@ public class MarkLogicSinkTask extends SinkTask {
 	private WriteBatcher writeBatcher;
 	private SinkRecordConverter sinkRecordConverter;
 
-	protected Integer getIntConfigValue(String key, final Map<String, String> config) {
-		ConfigDef.ConfigKey configKey = MarkLogicSinkConfig.CONFIG_DEF.configKeys().get(key);
-		if(configKey == null || configKey.type() != ConfigDef.Type.INT) {
-			throw new RuntimeException("Tried to retrieve a ConfigKey of type INT for " + key + " when the value provided is a " + configKey.type().name());
-		}
-
-		String value = config.get(key);
-		if(value != null) {
-			return Integer.parseInt(value);
-		} else if(configKey.hasDefault()) {
-			return (Integer) configKey.defaultValue;
-		} else {
-			return null;
-		}
-	}
-
-	protected Boolean getBooleanConfigValue(String key, final Map<String, String> config) {
-		ConfigDef.ConfigKey configKey = MarkLogicSinkConfig.CONFIG_DEF.configKeys().get(key);
-		if(configKey == null || configKey.type() != ConfigDef.Type.BOOLEAN) {
-			throw new RuntimeException("Tried to retrieve a ConfigKey of type IBOOLEANT for " + key + " when the value provided is a " + configKey.type().name());
-		}
-
-		String value = config.get(key);
-		if(value != null) {
-			return Boolean.parseBoolean(value);
-		} else if(configKey.hasDefault()) {
-			return (Boolean) configKey.defaultValue;
-		} else {
-			return null;
-		}
-	}
-
 	@Override
-	public void start(final Map<String, String> config) {
+	public void start(final Map<String, String> originalConfig) {
 		logger.info("Starting");
+
+		final Map<String, Object> config = MarkLogicSinkConfig.hydrate(originalConfig);
 
 		config.keySet().forEach(key -> logger.info("Config: {} : {}", key, config.get(key)));
 
@@ -79,15 +49,15 @@ public class MarkLogicSinkTask extends SinkTask {
 		dataMovementManager = databaseClient.newDataMovementManager();
 
 		writeBatcher = dataMovementManager.newWriteBatcher()
-				.withBatchSize(getIntConfigValue(MarkLogicSinkConfig.DMSDK_BATCH_SIZE, config))
-				.withThreadCount(getIntConfigValue(MarkLogicSinkConfig.DMSDK_THREAD_COUNT, config));
+				.withBatchSize((Integer) config.get(MarkLogicSinkConfig.DMSDK_BATCH_SIZE))
+				.withThreadCount((Integer) config.get(MarkLogicSinkConfig.DMSDK_THREAD_COUNT));
 
 		ServerTransform transform = buildServerTransform(config);
 		if (transform != null) {
 			writeBatcher.withTransform(transform);
 		}
 
-		final String flowName = config.get(MarkLogicSinkConfig.DATAHUB_FLOW_NAME);
+		final String flowName = (String) config.get(MarkLogicSinkConfig.DATAHUB_FLOW_NAME);
 		if (flowName != null && flowName.trim().length() > 0) {
 			writeBatcher.onBatchSuccess(buildSuccessListener(flowName, config, databaseClientConfig));
 		}
@@ -105,9 +75,9 @@ public class MarkLogicSinkTask extends SinkTask {
 	 * @param kafkaConfig
 	 * @param databaseClientConfig
 	 */
-	protected RunFlowWriteBatchListener buildSuccessListener(String flowName, Map<String, String> kafkaConfig, DatabaseClientConfig databaseClientConfig) {
+	protected RunFlowWriteBatchListener buildSuccessListener(String flowName, Map<String, Object> kafkaConfig, DatabaseClientConfig databaseClientConfig) {
 		String logMessage = String.format("After ingesting a batch, will run flow '%s'", flowName);
-		final String flowSteps = kafkaConfig.get(MarkLogicSinkConfig.DATAHUB_FLOW_STEPS);
+		final String flowSteps = (String) kafkaConfig.get(MarkLogicSinkConfig.DATAHUB_FLOW_STEPS);
 		List<String> steps = null;
 		if (flowSteps != null && flowSteps.trim().length() > 0) {
 			steps = Arrays.asList(flowSteps.split(","));
@@ -117,7 +87,7 @@ public class MarkLogicSinkTask extends SinkTask {
 
 		RunFlowWriteBatchListener listener = new RunFlowWriteBatchListener(flowName, steps, databaseClientConfig);
 		if (kafkaConfig.containsKey(MarkLogicSinkConfig.DATAHUB_FLOW_LOG_RESPONSE)) {
-			listener.setLogResponse(Boolean.parseBoolean(kafkaConfig.get(MarkLogicSinkConfig.DATAHUB_FLOW_LOG_RESPONSE)));
+			listener.setLogResponse((Boolean) kafkaConfig.get(MarkLogicSinkConfig.DATAHUB_FLOW_LOG_RESPONSE));
 		}
 		return listener;
 	}
@@ -129,13 +99,13 @@ public class MarkLogicSinkTask extends SinkTask {
 	 * @param config - The complete configuration object including any transform parameters.
 	 * @return - The ServerTransform that will operate on each record, or null
 	 */
-	protected ServerTransform buildServerTransform(final Map<String, String> config) {
-		String transform = config.get(MarkLogicSinkConfig.DMSDK_TRANSFORM);
+	protected ServerTransform buildServerTransform(final Map<String, Object> config) {
+		String transform = (String) config.get(MarkLogicSinkConfig.DMSDK_TRANSFORM);
 		if (transform != null && transform.trim().length() > 0) {
 			ServerTransform t = new ServerTransform(transform);
-			String params = config.get(MarkLogicSinkConfig.DMSDK_TRANSFORM_PARAMS);
+			String params = (String) config.get(MarkLogicSinkConfig.DMSDK_TRANSFORM_PARAMS);
 			if (params != null && params.trim().length() > 0) {
-				String delimiter = config.get(MarkLogicSinkConfig.DMSDK_TRANSFORM_PARAMS_DELIMITER);
+				String delimiter = (String) config.get(MarkLogicSinkConfig.DMSDK_TRANSFORM_PARAMS_DELIMITER);
 				if (delimiter != null && delimiter.trim().length() > 0) {
 					String[] tokens = params.split(delimiter);
 					for (int i = 0; i < tokens.length; i += 2) {

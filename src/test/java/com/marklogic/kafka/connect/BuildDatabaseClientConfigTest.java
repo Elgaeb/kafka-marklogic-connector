@@ -17,12 +17,12 @@ import static org.junit.jupiter.api.Assertions.*;
 public class BuildDatabaseClientConfigTest {
 
 	DefaultDatabaseClientConfigBuilder builder = new DefaultDatabaseClientConfigBuilder();
-	Map<String, String> config = new HashMap<>();
+	Map<String, Object> config = new HashMap<>();
 
 	@BeforeEach
 	public void setup() {
 		config.put(MarkLogicSinkConfig.CONNECTION_HOST, "some-host");
-		config.put(MarkLogicSinkConfig.CONNECTION_PORT, "8123");
+		config.put(MarkLogicSinkConfig.CONNECTION_PORT, 8123);
 		config.put(MarkLogicSinkConfig.CONNECTION_DATABASE, "some-database");
 	}
 
@@ -66,7 +66,7 @@ public class BuildDatabaseClientConfigTest {
 	@Test
 	public void digestAuthenticationAndSimpleSsl() {
 		config.put(MarkLogicSinkConfig.CONNECTION_SECURITY_CONTEXT_TYPE, "digest");
-		config.put(MarkLogicSinkConfig.CONNECTION_SIMPLE_SSL, "true");
+		config.put(MarkLogicSinkConfig.SSL_CONNECTION_TYPE, "simple");
 
 		DatabaseClientConfig clientConfig = builder.buildDatabaseClientConfig(config);
 		assertEquals(SecurityContextType.DIGEST, clientConfig.getSecurityContextType());
@@ -76,9 +76,9 @@ public class BuildDatabaseClientConfigTest {
 	}
 	
 	@Test
-	public void basictAuthenticationAndSimpleSsl() {
+	public void basicAuthenticationAndSimpleSsl() {
 		config.put(MarkLogicSinkConfig.CONNECTION_SECURITY_CONTEXT_TYPE, "basic");
-		config.put(MarkLogicSinkConfig.CONNECTION_SIMPLE_SSL, "true");
+		config.put(MarkLogicSinkConfig.SSL_CONNECTION_TYPE, "simple");
 
 		DatabaseClientConfig clientConfig = builder.buildDatabaseClientConfig(config);
 		assertEquals(SecurityContextType.BASIC, clientConfig.getSecurityContextType());
@@ -92,11 +92,10 @@ public class BuildDatabaseClientConfigTest {
 		File file = new File("src/test/resources/srportal.p12");
 		String absolutePath = file.getAbsolutePath();
 		config.put(MarkLogicSinkConfig.CONNECTION_SECURITY_CONTEXT_TYPE, "basic");
-		config.put(MarkLogicSinkConfig.CONNECTION_SIMPLE_SSL, "false");
-		config.put(MarkLogicSinkConfig.SSL, "true");
+		config.put(MarkLogicSinkConfig.SSL_CONNECTION_TYPE, "default");
 		config.put(MarkLogicSinkConfig.TLS_VERSION, "TLSv1.2");
 		config.put(MarkLogicSinkConfig.SSL_HOST_VERIFIER, "STRICT");
-		config.put(MarkLogicSinkConfig.SSL_MUTUAL_AUTH, "true");
+		config.put(MarkLogicSinkConfig.SSL_MUTUAL_AUTH, true);
 		config.put(MarkLogicSinkConfig.CONNECTION_CERT_FILE, absolutePath);
 		config.put(MarkLogicSinkConfig.CONNECTION_CERT_PASSWORD, "abc");
 		
@@ -112,11 +111,10 @@ public class BuildDatabaseClientConfigTest {
 		File file = new File("src/test/resources/srportal.p12");
 		String absolutePath = file.getAbsolutePath();
 		config.put(MarkLogicSinkConfig.CONNECTION_SECURITY_CONTEXT_TYPE, "basic");
-		config.put(MarkLogicSinkConfig.CONNECTION_SIMPLE_SSL, "false");
-		config.put(MarkLogicSinkConfig.SSL, "true");
+		config.put(MarkLogicSinkConfig.SSL_CONNECTION_TYPE, "default");
 		config.put(MarkLogicSinkConfig.TLS_VERSION, "TLSv1.2");
 		config.put(MarkLogicSinkConfig.SSL_HOST_VERIFIER, "SOMETHING");
-		config.put(MarkLogicSinkConfig.SSL_MUTUAL_AUTH, "true");
+		config.put(MarkLogicSinkConfig.SSL_MUTUAL_AUTH, true);
 		config.put(MarkLogicSinkConfig.CONNECTION_CERT_FILE, absolutePath);
 		config.put(MarkLogicSinkConfig.CONNECTION_CERT_PASSWORD, "abc");
 		
@@ -133,11 +131,10 @@ public class BuildDatabaseClientConfigTest {
 	public void digestAuthenticationAnd1WaySSL() {
 		
 		config.put(MarkLogicSinkConfig.CONNECTION_SECURITY_CONTEXT_TYPE, "digest");
-		config.put(MarkLogicSinkConfig.CONNECTION_SIMPLE_SSL, "false");
-		config.put(MarkLogicSinkConfig.SSL, "true");
+		config.put(MarkLogicSinkConfig.SSL_CONNECTION_TYPE, "default");
 		config.put(MarkLogicSinkConfig.TLS_VERSION, "TLSv1.2");
 		config.put(MarkLogicSinkConfig.SSL_HOST_VERIFIER, "STRICT");
-		config.put(MarkLogicSinkConfig.SSL_MUTUAL_AUTH, "false");
+		config.put(MarkLogicSinkConfig.SSL_MUTUAL_AUTH, false);
 		
 		DatabaseClientConfig clientConfig = builder.buildDatabaseClientConfig(config);
 		assertEquals(SecurityContextType.DIGEST, clientConfig.getSecurityContextType());

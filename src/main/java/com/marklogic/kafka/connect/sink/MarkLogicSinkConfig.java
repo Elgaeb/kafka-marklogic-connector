@@ -7,6 +7,7 @@ import org.apache.kafka.common.config.ConfigDef.Type;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 interface FunctionalRecommender extends ConfigDef.Recommender {
@@ -27,12 +28,11 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 	public static final String CONNECTION_USERNAME = "ml.connection.username";
 	public static final String CONNECTION_PASSWORD = "ml.connection.password";
 	public static final String CONNECTION_TYPE = "ml.connection.type";
-	public static final String CONNECTION_SIMPLE_SSL = "ml.connection.simpleSsl";
 	public static final String CONNECTION_CERT_FILE = "ml.connection.certFile";
-	public static final String CONNECTION_CERT_PASSWORD = "ml.connection.certPassword";
-	public static final String CONNECTION_TRUSTSTORE_FILE = "ml.connection.truststoreFile";
-	public static final String CONNECTION_TRUSTSTORE_PASSWORD = "ml.connection.truststorePassword";
-	public static final String CONNECTION_TRUSTSTORE_TYPE = "ml.connection.truststoreType";
+	public static final String CONNECTION_CERT_PASSWORD = "ml.connection.cert.password";
+	public static final String CONNECTION_TRUSTSTORE_URL = "ml.connection.truststore.url";
+	public static final String CONNECTION_TRUSTSTORE_PASSWORD = "ml.connection.truststore.password";
+	public static final String CONNECTION_TRUSTSTORE_FORMAT = "ml.connection.truststore.format";
 	public static final String CONNECTION_EXTERNAL_NAME = "ml.connection.externalName";
 
 	public static final String DATAHUB_FLOW_NAME = "ml.datahub.flow.name";
@@ -54,7 +54,7 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 	public static final String DOCUMENT_URI_PREFIX = "ml.document.uriPrefix";
 	public static final String DOCUMENT_URI_SUFFIX = "ml.document.uriSuffix";
 
-	public static final String SSL = "ml.connection.enableCustomSsl";
+	public static final String SSL_CONNECTION_TYPE = "ml.connection.sslConnectionType";
 	public static final String TLS_VERSION = "ml.connection.customSsl.tlsVersion";
 	public static final String SSL_HOST_VERIFIER = "ml.connection.customSsl.hostNameVerifier";
 	public static final String SSL_MUTUAL_AUTH = "ml.connection.customSsl.mutualAuth";
@@ -64,6 +64,7 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 	private static final FunctionalRecommender DOCUMENT_FORMAT_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("json", "xml", "text", "binary", "unknown");
 	private static final FunctionalRecommender CONNECTION_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("DIRECT", "GATEWAY");
 	private static final FunctionalRecommender SECURITY_CONTEXT_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("digest", "basic", "kerberos", "certificate", "none");
+	private static final FunctionalRecommender SSL_CONNECTION_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("none", "simple", "default", "custom");
 
 	public static ConfigDef CONFIG_DEF = new ConfigDef()
 		.define(CONNECTION_HOST, Type.STRING, ConfigDef.NO_DEFAULT_VALUE, Importance.HIGH, "MarkLogic server hostname", "Connection", 1, ConfigDef.Width.NONE, "MarkLogic Host")
@@ -71,20 +72,19 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 		.define(CONNECTION_DATABASE, Type.STRING, null, Importance.LOW, "Database to connect, if different from the one associated with the port", "Connection", 3, ConfigDef.Width.NONE, "MarkLogic Database")
 		.define(CONNECTION_TYPE, Type.STRING, "DIRECT", Importance.LOW, "Connection type; DIRECT or GATEWAY", "Connection", 4, ConfigDef.Width.NONE, "Connection Type", Collections.emptyList(), CONNECTION_TYPE_RECOMMENDER)
 
-		.define(SSL, Type.BOOLEAN, false, Importance.LOW, "Whether SSL connection to the App server - true or false.", "SSL", 1, ConfigDef.Width.NONE, "SSL")
-		.define(CONNECTION_SIMPLE_SSL, Type.BOOLEAN, false, Importance.LOW, "Set to true to use a trust-everything SSL connection", "SSL", 2, ConfigDef.Width.NONE, "Use Simple SSL")
-		.define(CONNECTION_TRUSTSTORE_FILE, Type.STRING, null, Importance.LOW, "Path to a truststore file", "SSL", 3, ConfigDef.Width.NONE, "Truststore")
+		.define(SSL_CONNECTION_TYPE, Type.STRING, "none", Importance.HIGH, "Whether SSL connection to MarkLogic. none: do not use SSL, simple: use a trust-everything SSL connection, default: use the system default truststore, custom: use a custom truststore", "SSL", 1, ConfigDef.Width.NONE, "SSL", Collections.emptyList(), SSL_CONNECTION_TYPE_RECOMMENDER)
+		.define(CONNECTION_TRUSTSTORE_URL, Type.STRING, null, Importance.LOW, "Path to a truststore file", "SSL", 3, ConfigDef.Width.NONE, "Truststore")
 		.define(CONNECTION_TRUSTSTORE_PASSWORD, Type.STRING, null, Importance.LOW, "Password for the truststore file", "SSL", 4, ConfigDef.Width.NONE, "Truststore Password")
-		.define(CONNECTION_TRUSTSTORE_TYPE, Type.STRING, "pkcs12", Importance.LOW, "Type of the truststore: pkcs12 or jks", "SSL", 5, ConfigDef.Width.NONE, "Truststore Type", Collections.emptyList(), KEYSTORE_TYPE_RECOMMENDER)
-		.define(TLS_VERSION, Type.STRING, null, Importance.LOW, "Version of TLS to connect to MarkLogic SSL enabled App server. Ex. TLSv1.2", "SSL", 6, ConfigDef.Width.NONE, "TLS Version")
-		.define(SSL_HOST_VERIFIER, Type.STRING, "COMMON", Importance.LOW, "The strictness of Host Verifier - ANY, COMMON, STRICT", "SSL", 7, ConfigDef.Width.NONE, "Hostname Verifier", Collections.emptyList(), HOSTNAME_VERIFIER_TYPE_RECOMMENDER)
+		.define(CONNECTION_TRUSTSTORE_FORMAT, Type.STRING, "pkcs12", Importance.LOW, "Type of the truststore: pkcs12 or jks", "SSL", 5, ConfigDef.Width.NONE, "Truststore Type", Collections.emptyList(), KEYSTORE_TYPE_RECOMMENDER)
+		.define(TLS_VERSION, Type.STRING, "TLSv1.2", Importance.LOW, "Version of TLS to connect to MarkLogic SSL enabled App server. Ex. TLSv1.2", "SSL", 6, ConfigDef.Width.NONE, "TLS Version")
+		.define(SSL_HOST_VERIFIER, Type.STRING, "ANY", Importance.LOW, "The strictness of Host Verifier - ANY, COMMON, STRICT", "SSL", 7, ConfigDef.Width.NONE, "Hostname Verifier", Collections.emptyList(), HOSTNAME_VERIFIER_TYPE_RECOMMENDER)
 		.define(SSL_MUTUAL_AUTH, Type.BOOLEAN, false, Importance.LOW, "Mutual Authentication for Basic or Digest : true or false", "SSL", 8, ConfigDef.Width.NONE, "Mutual Authentication")
 
 		.define(CONNECTION_SECURITY_CONTEXT_TYPE, Type.STRING, "digest", Importance.HIGH, "Type of MarkLogic security context to create - either digest, basic, kerberos, certificate, or none", "Authentication", 1, ConfigDef.Width.NONE, "Authentication Type", Collections.emptyList(), SECURITY_CONTEXT_TYPE_RECOMMENDER)
 		.define(CONNECTION_USERNAME, Type.STRING, null, Importance.HIGH, "Name of MarkLogic user to authenticate as", "Authentication", 2, ConfigDef.Width.NONE, "MarkLogic Username")
 		.define(CONNECTION_PASSWORD, Type.STRING, null, Importance.HIGH, "Password for the MarkLogic user", "Authentication", 3, ConfigDef.Width.NONE, "MarkLogic Password")
 		.define(CONNECTION_EXTERNAL_NAME, Type.STRING, null, Importance.LOW, "External name for Kerberos authentication", "Authentication", 4, ConfigDef.Width.NONE, "Kerberos External Name")
-		.define(CONNECTION_CERT_FILE, Type.STRING, null, Importance.LOW, "Path to a certificate file", "Authentication", 5, ConfigDef.Width.NONE, "Certificate File")
+		.define(CONNECTION_CERT_FILE, Type.STRING, null, Importance.LOW, "Path to a certificate PKCS12 file", "Authentication", 5, ConfigDef.Width.NONE, "Certificate File")
 		.define(CONNECTION_CERT_PASSWORD, Type.STRING, null, Importance.LOW, "Password for the certificate file", "Authentication", 6, ConfigDef.Width.NONE, "Certificate Password")
 
 		.define(DATAHUB_FLOW_NAME, Type.STRING, null, Importance.MEDIUM, "Name of a Data Hub flow to run", "Data Hub Framework", 1, ConfigDef.Width.NONE, "Flow Name")
@@ -112,4 +112,25 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 		super(CONFIG_DEF, originals, false);
 	}
 
+	public static Map<String, Object> hydrate(Map<String, String> original) {
+		Map<String, Object> hydrated = new HashMap<>();
+
+		CONFIG_DEF.configKeys().forEach((name, configKey) -> {
+			String inputValue = original.get(configKey.name);
+			Object hydratedValue = null;
+			if(inputValue != null) {
+				hydratedValue = ConfigDef.parseType(configKey.name, inputValue, configKey.type);
+			} else {
+				if(!ConfigDef.NO_DEFAULT_VALUE.equals(configKey.defaultValue)) {
+					hydratedValue = configKey.defaultValue;
+				}
+			}
+
+			if(hydratedValue != null) {
+				hydrated.put(configKey.name, hydratedValue);
+			}
+		});
+
+		return hydrated;
+	}
 }

@@ -26,7 +26,7 @@ public class ConvertSinkRecordTest {
 
 	@Test
 	public void allPropertiesSet() throws IOException {
-		Map<String, String> config = new HashMap<>();
+		Map<String, Object> config = new HashMap<>();
 		config.put("ml.document.collections", "one,two");
 		config.put("ml.document.format", "json");
 		config.put("ml.document.mimeType", "application/json");
