@@ -1,6 +1,7 @@
 package com.marklogic.kafka.connect.sink;
 
 import com.marklogic.client.ext.document.DefaultContentIdExtractor;
+import com.marklogic.client.ext.document.SchemaContentIdExtractor;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
@@ -63,7 +64,8 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 	private static final AlwaysVisibleRecommender CONNECTION_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("DIRECT", "GATEWAY");
 	private static final AlwaysVisibleRecommender SECURITY_CONTEXT_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("digest", "basic", "kerberos", "certificate", "none");
 	private static final AlwaysVisibleRecommender SSL_CONNECTION_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("none", "simple", "default", "custom");
-	private static final AlwaysVisibleRecommender SINK_RECORD_CONVERTER_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(DefaultSinkRecordConverter.class.getName(), ConnectSinkRecordConverter.class.getName());
+	private static final AlwaysVisibleRecommender CONTENT_ID_EXTRACTOR_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(SchemaContentIdExtractor.class, DefaultContentIdExtractor.class);
+	private static final AlwaysVisibleRecommender SINK_RECORD_CONVERTER_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(DefaultSinkRecordConverter.class, ConnectSinkRecordConverter.class);
 
 	public static ConfigDef CONFIG_DEF = new ConfigDef()
 		.define(CONNECTION_HOST, Type.STRING, ConfigDef.NO_DEFAULT_VALUE, Importance.HIGH, "MarkLogic server hostname", "Connection", 1, ConfigDef.Width.NONE, "MarkLogic Host")
@@ -99,8 +101,8 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 
 		.define(DOCUMENT_COLLECTIONS, Type.LIST, null, Importance.MEDIUM, "String-delimited collections to add each document to", "Documents", 1, ConfigDef.Width.NONE, "Additional Collections")
 		.define(DOCUMENT_PERMISSIONS, Type.STRING, "rest-reader,read,rest-writer,update", Importance.MEDIUM, "String-delimited permissions to add to each document; role1,capability1,role2,capability2,etc", "Documents", 2, ConfigDef.Width.NONE, "Document Permissions")
-		.define(DOCUMENT_CONTENT_ID_EXTRACTOR, Type.CLASS, DefaultContentIdExtractor.class, Importance.MEDIUM, "Class used to generate unique IDs for documents.", "Documents", 3, ConfigDef.Width.NONE, "ID Generator")
-		.define(DOCUMENT_CONVERTER, Type.CLASS, DefaultSinkRecordConverter.class.getName(), Importance.LOW, "Defines format of each document; can be one of json, xml, text, binary, or unknown", "Documents", 4, ConfigDef.Width.NONE, "Record Converter", Collections.emptyList(), SINK_RECORD_CONVERTER_RECOMMENDER)
+		.define(DOCUMENT_CONTENT_ID_EXTRACTOR, Type.CLASS, DefaultContentIdExtractor.class, Importance.MEDIUM, "Class used to generate unique IDs for documents.", "Documents", 3, ConfigDef.Width.NONE, "ID Generator", Collections.emptyList(), CONTENT_ID_EXTRACTOR_RECOMMENDER)
+		.define(DOCUMENT_CONVERTER, Type.CLASS, DefaultSinkRecordConverter.class, Importance.LOW, "Defines format of each document; can be one of json, xml, text, binary, or unknown", "Documents", 4, ConfigDef.Width.NONE, "Record Converter", Collections.emptyList(), SINK_RECORD_CONVERTER_RECOMMENDER)
 
 		.define(DOCUMENT_URI_PREFIX, Type.STRING, null, Importance.MEDIUM, "Prefix to prepend to each generated URI", "DefaultSinkRecordConverter", 1, ConfigDef.Width.NONE, "URI Prefix")
 		.define(DOCUMENT_URI_SUFFIX, Type.STRING, null, Importance.MEDIUM, "Suffix to append to each generated URI", "DefaultSinkRecordConverter", 2, ConfigDef.Width.NONE, "URI Suffix")
@@ -108,9 +110,9 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 		.define(DOCUMENT_FORMAT, Type.STRING, "json", Importance.LOW, "Defines format of each document; can be one of json, xml, text, binary, or unknown", "DefaultSinkRecordConverter", 4, ConfigDef.Width.NONE, "Output Format", Collections.emptyList(), DOCUMENT_FORMAT_RECOMMENDER)
 		.define(DOCUMENT_MIMETYPE, Type.STRING, null, Importance.LOW, "Defines the mime type of each document; optional, and typically the format is set instead of the mime type", "DefaultSinkRecordConverter", 5, ConfigDef.Width.NONE, "MIME Type")
 
-		.define(ConnectSinkRecordConverter.CSRC_TOPIC_REGEX, Type.STRING, null, Importance.MEDIUM, "Regular expression to be applied to the topic for uri and collection generation.", "ConnectSinkRecordConverter", 2, ConfigDef.Width.NONE, "URI Generator")
-		.define(ConnectSinkRecordConverter.CSRC_URI_FORMAT, Type.STRING, "/%2$s.json", Importance.MEDIUM, "Format string used to generate URIs.", "ConnectSinkRecordConverter", 1, ConfigDef.Width.NONE, "URI Generator")
-		.define(ConnectSinkRecordConverter.CSRC_COLLECTION_FORMAT, Type.STRING, null, Importance.MEDIUM, "Format string used to generate an additional collection for documents.", "ConnectSinkRecordConverter", 3, ConfigDef.Width.NONE, "URI Generator")
+		.define(ConnectSinkRecordConverter.CSRC_TOPIC_REGEX, Type.STRING, null, Importance.MEDIUM, "Regular expression to be applied to the topic for uri and collection generation.", "ConnectSinkRecordConverter", 2, ConfigDef.Width.NONE, "Topic Regex")
+		.define(ConnectSinkRecordConverter.CSRC_URI_FORMAT, Type.STRING, "/%2$s.json", Importance.MEDIUM, "Format string used to generate URIs.", "ConnectSinkRecordConverter", 1, ConfigDef.Width.NONE, "URI Format")
+		.define(ConnectSinkRecordConverter.CSRC_COLLECTION_FORMAT, Type.STRING, null, Importance.MEDIUM, "Format string used to generate an additional collection for documents.", "ConnectSinkRecordConverter", 3, ConfigDef.Width.NONE, "Collection Format")
 		;
 
 	public MarkLogicSinkConfig(final Map<?, ?> originals) {

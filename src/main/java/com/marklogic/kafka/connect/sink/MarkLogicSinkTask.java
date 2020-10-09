@@ -3,6 +3,7 @@ package com.marklogic.kafka.connect.sink;
 import com.marklogic.client.DatabaseClient;
 import com.marklogic.client.datamovement.DataMovementManager;
 import com.marklogic.client.datamovement.WriteBatcher;
+import com.marklogic.client.document.DocumentWriteOperation;
 import com.marklogic.client.document.ServerTransform;
 import com.marklogic.client.ext.DatabaseClientConfig;
 import com.marklogic.client.ext.DefaultConfiguredDatabaseClientFactory;
@@ -16,10 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Performs the actual work associated with ingesting new documents into MarkLogic based on data received via the
@@ -34,6 +32,9 @@ public class MarkLogicSinkTask extends SinkTask {
 	private WriteBatcher writeBatcher;
 	private SinkRecordConverter sinkRecordConverter;
 
+	private Set<String> currentBatch = new HashSet<>();
+	private int batchSize;
+
 	@Override
 	public void start(final Map<String, String> originalConfig) {
 		logger.info("Starting");
@@ -47,15 +48,14 @@ public class MarkLogicSinkTask extends SinkTask {
 			throw new RuntimeException(e);
 		}
 
-//		sinkRecordConverter = new DefaultSinkRecordConverter(config);
-
 		DatabaseClientConfig databaseClientConfig = new DefaultDatabaseClientConfigBuilder().buildDatabaseClientConfig(config);
 		databaseClient = new DefaultConfiguredDatabaseClientFactory().newDatabaseClient(databaseClientConfig);
 
 		dataMovementManager = databaseClient.newDataMovementManager();
 
+		this.batchSize = (Integer) config.get(MarkLogicSinkConfig.DMSDK_BATCH_SIZE);
 		writeBatcher = dataMovementManager.newWriteBatcher()
-				.withBatchSize((Integer) config.get(MarkLogicSinkConfig.DMSDK_BATCH_SIZE))
+				.withBatchSize(this.batchSize)
 				.withThreadCount((Integer) config.get(MarkLogicSinkConfig.DMSDK_THREAD_COUNT));
 
 		ServerTransform transform = buildServerTransform(config);
@@ -168,7 +168,23 @@ public class MarkLogicSinkTask extends SinkTask {
 					logger.debug("Processing record value {} in topic {}", record.value(), record.topic());
 				}
 				if (record.value() != null) {
-					writeBatcher.add(sinkRecordConverter.convert(record));
+					DocumentWriteOperation writeOperation = sinkRecordConverter.convert(record);
+					String uri = writeOperation.getUri();
+
+					if(this.currentBatch.contains(uri)) {
+						// updating a document that's already in this batch. Need to flush.
+						logger.info("Detected uri {} in existing batch. Flushing.", uri);
+						writeBatcher.flushAsync();
+						this.currentBatch.clear();
+					}
+
+					writeBatcher.add(writeOperation);
+
+					this.currentBatch.add(uri);
+					if(this.currentBatch.size() == this.batchSize) {
+						// TODO: There has to be a better way...
+						this.currentBatch.clear();
+					}
 				} else {
 					logger.warn("Skipping record with null value - possibly a 'tombstone' message.");
 				}

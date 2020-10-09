@@ -67,8 +67,8 @@ public class PerformanceTest extends AbstractIntegrationTest {
     public void testPerformance() {
         List<SinkRecord> records = new LinkedList<>();
 
-        int count = 10;
-        Integer threadCount = 32;
+        int count = 100000;
+        Integer threadCount = 16;
         Integer batchSize = 50;
 
         for(int i = 0; i < count; i++) {
