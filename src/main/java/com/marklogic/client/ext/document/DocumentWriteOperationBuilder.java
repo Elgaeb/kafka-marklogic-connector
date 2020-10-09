@@ -5,35 +5,39 @@ import com.marklogic.client.ext.util.DefaultDocumentPermissionsParser;
 import com.marklogic.client.impl.DocumentWriteOperationImpl;
 import com.marklogic.client.io.DocumentMetadataHandle;
 import com.marklogic.client.io.marker.AbstractWriteHandle;
+import org.apache.kafka.connect.sink.SinkRecord;
+
+import java.util.List;
 
 public class DocumentWriteOperationBuilder {
 
 	private DocumentWriteOperation.OperationType operationType = DocumentWriteOperation.OperationType.DOCUMENT_WRITE;
 	private String uriPrefix;
 	private String uriSuffix;
-	private String collections;
+	private List<String> collections;
 	private String permissions;
 
 	private ContentIdExtractor contentIdExtractor = new DefaultContentIdExtractor();
 
-	public DocumentWriteOperation build(AbstractWriteHandle content, DocumentMetadataHandle metadata ) {
+	public DocumentWriteOperation build(SinkRecord sinkRecord, AbstractWriteHandle content, DocumentMetadataHandle metadata ) {
 		if (content == null) {
 			throw new NullPointerException("'content' must not be null");
 		}
 
-		if (hasText(collections)) {
-			metadata.getCollections().addAll(collections.trim().split(","));
+		if (collections != null) {
+			metadata.getCollections().addAll(collections);
 		}
+
 		if (hasText(permissions)) {
 			new DefaultDocumentPermissionsParser().parsePermissions(permissions.trim(), metadata.getPermissions());
 		}
 
-		String uri = buildUri(content);
+		String uri = buildUri(sinkRecord, content);
 		return build(operationType, uri, metadata, content);
 	}
 
-	protected String buildUri(AbstractWriteHandle content) {
-		String uri = contentIdExtractor.extractId(content);
+	protected String buildUri(SinkRecord sinkRecord, AbstractWriteHandle content) {
+		String uri = contentIdExtractor.extractId(sinkRecord);
 		if (hasText(uriPrefix)) {
 			uri = uriPrefix + uri;
 		}
@@ -71,7 +75,7 @@ public class DocumentWriteOperationBuilder {
 		return this;
 	}
 
-	public DocumentWriteOperationBuilder withCollections(String collections) {
+	public DocumentWriteOperationBuilder withCollections(List<String> collections) {
 		this.collections = collections;
 		return this;
 	}

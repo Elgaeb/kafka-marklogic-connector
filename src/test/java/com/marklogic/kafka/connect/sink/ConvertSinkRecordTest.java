@@ -1,6 +1,7 @@
 package com.marklogic.kafka.connect.sink;
 
 import com.marklogic.client.document.DocumentWriteOperation;
+import com.marklogic.client.ext.document.DefaultContentIdExtractor;
 import com.marklogic.client.io.BytesHandle;
 import com.marklogic.client.io.DocumentMetadataHandle;
 import com.marklogic.client.io.Format;
@@ -27,12 +28,13 @@ public class ConvertSinkRecordTest {
 	@Test
 	public void allPropertiesSet() throws IOException {
 		Map<String, Object> config = new HashMap<>();
-		config.put("ml.document.collections", "one,two");
+		config.put("ml.document.collections", Arrays.asList("one","two"));
 		config.put("ml.document.format", "json");
 		config.put("ml.document.mimeType", "application/json");
 		config.put("ml.document.permissions", "manage-user,read,manage-admin,update");
 		config.put("ml.document.uriPrefix", "/example/");
 		config.put("ml.document.uriSuffix", ".json");
+		config.put(MarkLogicSinkConfig.DOCUMENT_CONTENT_ID_EXTRACTOR, DefaultContentIdExtractor.class);
 		converter = new DefaultSinkRecordConverter(config);
 
 		DocumentWriteOperation op = converter.convert(newSinkRecord("test"));
@@ -58,8 +60,11 @@ public class ConvertSinkRecordTest {
 
 	@Test
 	public void noPropertiesSet() throws IOException {
-		converter = new DefaultSinkRecordConverter(new HashMap<>());
-		converter.getDocumentWriteOperationBuilder().withContentIdExtractor(content -> "12345");
+		Map<String, Object> config = new HashMap<>();
+		config.put(MarkLogicSinkConfig.DOCUMENT_CONTENT_ID_EXTRACTOR, DefaultContentIdExtractor.class);
+		converter = new DefaultSinkRecordConverter(config);
+
+		converter.getDocumentWriteOperationBuilder().withContentIdExtractor((sinkRecord) -> "12345");
 
 		DocumentWriteOperation op = converter.convert(newSinkRecord("doesn't matter"));
 
@@ -72,7 +77,9 @@ public class ConvertSinkRecordTest {
 
 	@Test
 	public void binaryContent() throws IOException{
-		converter = new DefaultSinkRecordConverter(new HashMap<>());
+		Map<String, Object> config = new HashMap<>();
+		config.put(MarkLogicSinkConfig.DOCUMENT_CONTENT_ID_EXTRACTOR, DefaultContentIdExtractor.class);
+		converter = new DefaultSinkRecordConverter(config);
 
 		DocumentWriteOperation op = converter.convert(newSinkRecord("hello world".getBytes()));
 

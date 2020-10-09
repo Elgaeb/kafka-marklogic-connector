@@ -1,17 +1,38 @@
-.gradle
-.idea
+# Ignore hidden files by default
+.*
+
+# Ignore backup files by default
+*~
+
+# Include specific hidden files
+!.*ignore
+!.*rc
+!.*rc.json
+!.editorconfig
+!.env
+!.gitattributes
+!.gitmodules
+
+# Build directories for various tools
+build/
+dist/
+dist-libs/
+target/
+coverage/
+out/
+test-output/
+bin/
+testConfig/
+
+# IDE artifacts
 *.iml
-build
-out
-gradle-local.properties
-testConfig
+*.ipr
 
-bin
-.vscode  
+# Miscellaneous files
+**.lock
+**.log*
 *.class
-
-.classpath
-
 *.prefs
 
-.project
+# Local files
+*-local*.properties

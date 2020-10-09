@@ -1,6 +1,7 @@
 package com.marklogic.kafka.connect.sink;
 
 import com.marklogic.client.document.DocumentWriteOperation;
+import com.marklogic.client.ext.document.ContentIdExtractor;
 import com.marklogic.client.ext.document.DocumentWriteOperationBuilder;
 import com.marklogic.client.io.BytesHandle;
 import com.marklogic.client.io.DocumentMetadataHandle;
@@ -19,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -36,13 +38,17 @@ public class DefaultSinkRecordConverter implements SinkRecordConverter {
     private Converter converter;
 
     public DefaultSinkRecordConverter(Map<String, Object> kafkaConfig) {
-
         addTopicToCollections = (Boolean) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_COLLECTIONS_ADD_TOPIC);
-        documentWriteOperationBuilder = new DocumentWriteOperationBuilder()
-                .withCollections((String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_COLLECTIONS))
-                .withPermissions((String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_PERMISSIONS))
-                .withUriPrefix((String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_URI_PREFIX))
-                .withUriSuffix((String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_URI_SUFFIX));
+        try {
+            documentWriteOperationBuilder = new DocumentWriteOperationBuilder()
+                    .withCollections((List<String>) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_COLLECTIONS))
+                    .withPermissions((String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_PERMISSIONS))
+                    .withUriPrefix((String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_URI_PREFIX))
+                    .withUriSuffix((String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_URI_SUFFIX))
+                    .withContentIdExtractor((ContentIdExtractor) ((Class)kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_CONTENT_ID_EXTRACTOR)).newInstance());
+        } catch(InstantiationException | IllegalAccessException ex) {
+            throw new RuntimeException(ex);
+        }
 
         String val = (String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_FORMAT);
         if (val != null && val.trim().length() > 0) {
@@ -62,7 +68,11 @@ public class DefaultSinkRecordConverter implements SinkRecordConverter {
 
     @Override
     public DocumentWriteOperation convert(SinkRecord sinkRecord) {
-        return documentWriteOperationBuilder.build(toContent(sinkRecord), addTopicToCollections(sinkRecord.topic(), addTopicToCollections));
+        return documentWriteOperationBuilder.build(
+                sinkRecord,
+                toContent(sinkRecord),
+                addTopicToCollections(sinkRecord.topic(), addTopicToCollections)
+        );
     }
 
     /**
@@ -84,12 +94,6 @@ public class DefaultSinkRecordConverter implements SinkRecordConverter {
      * @return
      */
     protected AbstractWriteHandle toContent(SinkRecord record) {
-
-//        logger.info("Got a new Record:");
-//        logger.info(record.toString());
-//        logger.info(record.value().getClass().getName());
-//        logger.info(record.value().toString());
-
         if ((record == null) || (record.value() == null)) {
             throw new NullPointerException("'record' must not be null, and must have a value.");
         }
@@ -105,13 +109,30 @@ public class DefaultSinkRecordConverter implements SinkRecordConverter {
             return content;
         }
         if (value instanceof Struct) {
-//            logger.info("Record is a Struct");
-//            Schema valueSchema = record.valueSchema();
-//            logger.info("Schema name: " + record.valueSchema().name());
-//            logger.info("Schema: " + record.valueSchema().toString());
+            final Schema headersSchema = SchemaBuilder.struct()
+                    .field("topicName", Schema.STRING_SCHEMA)
+                    .build();
+            final Schema envelopeSchema = SchemaBuilder.struct()
+                    .field("headers", headersSchema)
+                    .field("instance", record.valueSchema())
+                    .build();
+            final Schema rootSchema = SchemaBuilder.struct()
+                    .field("envelope", envelopeSchema)
+                    .build();
+
+            Struct headers = new Struct(headersSchema);
+            headers.put("topicName", record.topic());
+
+            Struct envelope = new Struct(envelopeSchema);
+            envelope.put("headers", headers);
+            envelope.put("instance", value);
+
+            Struct root = new Struct(rootSchema);
+            root.put("envelope", envelope);
 
             StructWriteHandle content = new StructWriteHandle(this.converter)
-                    .with(record.valueSchema(), (Struct) value)
+                    .with(rootSchema, root)
+//                    .with(record.valueSchema(), (Struct) value)
                     .withFormat(Format.JSON);
             return content;
         }

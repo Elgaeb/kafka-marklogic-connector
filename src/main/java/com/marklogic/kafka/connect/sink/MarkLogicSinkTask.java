@@ -15,6 +15,7 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -36,12 +37,17 @@ public class MarkLogicSinkTask extends SinkTask {
 	@Override
 	public void start(final Map<String, String> originalConfig) {
 		logger.info("Starting");
-
 		final Map<String, Object> config = MarkLogicSinkConfig.hydrate(originalConfig);
-
 		config.keySet().forEach(key -> logger.info("Config: {} : {}", key, config.get(key)));
 
-		sinkRecordConverter = new DefaultSinkRecordConverter(config);
+		try {
+			Class converterClass = (Class) config.get(MarkLogicSinkConfig.DOCUMENT_CONVERTER);
+			this.sinkRecordConverter = (SinkRecordConverter) converterClass.getDeclaredConstructor(Map.class).newInstance(config);
+		} catch (NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+			throw new RuntimeException(e);
+		}
+
+//		sinkRecordConverter = new DefaultSinkRecordConverter(config);
 
 		DatabaseClientConfig databaseClientConfig = new DefaultDatabaseClientConfigBuilder().buildDatabaseClientConfig(config);
 		databaseClient = new DefaultConfiguredDatabaseClientFactory().newDatabaseClient(databaseClientConfig);
@@ -179,10 +185,17 @@ public class MarkLogicSinkTask extends SinkTask {
 	@Override
 	public void flush(Map<TopicPartition, OffsetAndMetadata> currentOffsets) {
 		super.flush(currentOffsets);
-//		logger.info("Flushing records.");
-
 		if (writeBatcher != null) {
 			writeBatcher.flushAsync();
+		} else {
+			logger.warn("writeBatcher is null - ignore this is you are running unit tests, otherwise this is a problem.");
+		}
+	}
+
+	public void flushAndWait(Map<TopicPartition, OffsetAndMetadata> currentOffsets) {
+		super.flush(currentOffsets);
+		if (writeBatcher != null) {
+			writeBatcher.flushAndWait();
 		} else {
 			logger.warn("writeBatcher is null - ignore this is you are running unit tests, otherwise this is a problem.");
 		}
