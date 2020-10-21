@@ -45,6 +45,7 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 
 	public static final String DMSDK_FLUSH_ON_PUT = "ml.document.flushOnPut";
 	public static final String DOCUMENT_COLLECTIONS_ADD_TOPIC = "ml.document.addTopicToCollections";
+	public static final String DOCUMENT_TOPIC_COLLECTION_CASE = "ml.document.topicCollectionFormat";
 	public static final String DOCUMENT_COLLECTIONS = "ml.document.collections";
 	public static final String DOCUMENT_PERMISSIONS = "ml.document.permissions";
 	public static final String DOCUMENT_FORMAT = "ml.document.format";
@@ -66,6 +67,7 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 	private static final AlwaysVisibleRecommender SSL_CONNECTION_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("none", "simple", "default", "custom");
 	private static final AlwaysVisibleRecommender CONTENT_ID_EXTRACTOR_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(SchemaContentIdExtractor.class, DefaultContentIdExtractor.class);
 	private static final AlwaysVisibleRecommender SINK_RECORD_CONVERTER_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(DefaultSinkRecordConverter.class, ConnectSinkRecordConverter.class);
+	private static final AlwaysVisibleRecommender STRING_CASE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("as-is", "lower", "upper", "camel");
 
 	public static ConfigDef CONFIG_DEF = new ConfigDef()
 		.define(CONNECTION_HOST, Type.STRING, ConfigDef.NO_DEFAULT_VALUE, Importance.HIGH, "MarkLogic server hostname", "Connection", 1, ConfigDef.Width.NONE, "MarkLogic Host")
@@ -107,12 +109,15 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 		.define(DOCUMENT_URI_PREFIX, Type.STRING, null, Importance.MEDIUM, "Prefix to prepend to each generated URI", "DefaultSinkRecordConverter", 1, ConfigDef.Width.NONE, "URI Prefix")
 		.define(DOCUMENT_URI_SUFFIX, Type.STRING, null, Importance.MEDIUM, "Suffix to append to each generated URI", "DefaultSinkRecordConverter", 2, ConfigDef.Width.NONE, "URI Suffix")
 		.define(DOCUMENT_COLLECTIONS_ADD_TOPIC, Type.BOOLEAN, false, Importance.LOW, "Indicates if the topic name should be added to the set of collections for a document", "DefaultSinkRecordConverter", 3, ConfigDef.Width.NONE, "Add Topic as Collection")
-		.define(DOCUMENT_FORMAT, Type.STRING, "json", Importance.LOW, "Defines format of each document; can be one of json, xml, text, binary, or unknown", "DefaultSinkRecordConverter", 4, ConfigDef.Width.NONE, "Output Format", Collections.emptyList(), DOCUMENT_FORMAT_RECOMMENDER)
-		.define(DOCUMENT_MIMETYPE, Type.STRING, null, Importance.LOW, "Defines the mime type of each document; optional, and typically the format is set instead of the mime type", "DefaultSinkRecordConverter", 5, ConfigDef.Width.NONE, "MIME Type")
+		.define(DOCUMENT_TOPIC_COLLECTION_CASE, Type.STRING, "as-is", Importance.LOW, "Case used for the topic collection: as-is, lower, upper, camel", "DefaultSinkRecordConverter", 4, ConfigDef.Width.NONE, "Collection Case", Collections.emptyList(), STRING_CASE_RECOMMENDER)
+		.define(DOCUMENT_FORMAT, Type.STRING, "json", Importance.LOW, "Defines format of each document; can be one of json, xml, text, binary, or unknown", "DefaultSinkRecordConverter", 5, ConfigDef.Width.NONE, "Output Format", Collections.emptyList(), DOCUMENT_FORMAT_RECOMMENDER)
+		.define(DOCUMENT_MIMETYPE, Type.STRING, null, Importance.LOW, "Defines the mime type of each document; optional, and typically the format is set instead of the mime type", "DefaultSinkRecordConverter", 6, ConfigDef.Width.NONE, "MIME Type")
 
-		.define(ConnectSinkRecordConverter.CSRC_TOPIC_REGEX, Type.STRING, null, Importance.MEDIUM, "Regular expression to be applied to the topic for uri and collection generation.", "ConnectSinkRecordConverter", 2, ConfigDef.Width.NONE, "Topic Regex")
-		.define(ConnectSinkRecordConverter.CSRC_URI_FORMAT, Type.STRING, "/%2$s.json", Importance.MEDIUM, "Format string used to generate URIs.", "ConnectSinkRecordConverter", 1, ConfigDef.Width.NONE, "URI Format")
-		.define(ConnectSinkRecordConverter.CSRC_COLLECTION_FORMAT, Type.STRING, null, Importance.MEDIUM, "Format string used to generate an additional collection for documents.", "ConnectSinkRecordConverter", 3, ConfigDef.Width.NONE, "Collection Format")
+		.define(ConnectSinkRecordConverter.CSRC_TOPIC_REGEX, Type.STRING, null, Importance.MEDIUM, "Regular expression to be applied to the topic for uri and collection generation.", "ConnectSinkRecordConverter", 1, ConfigDef.Width.NONE, "Topic Regex")
+		.define(ConnectSinkRecordConverter.CSRC_URI_FORMATSTRING, Type.STRING, "/%2$s.json", Importance.MEDIUM, "Format string used to generate URIs.", "ConnectSinkRecordConverter", 2, ConfigDef.Width.NONE, "URI Format")
+		.define(ConnectSinkRecordConverter.CSRC_URI_CASE, Type.STRING, "as-is", Importance.MEDIUM, "Case used for the generated uri: as-is, lower, upper, camel", "ConnectSinkRecordConverter", 3, ConfigDef.Width.NONE, "URI Case", Collections.emptyList(), STRING_CASE_RECOMMENDER)
+		.define(ConnectSinkRecordConverter.CSRC_COLLECTION_FORMATSTRING, Type.STRING, null, Importance.MEDIUM, "Format string used to generate an additional collection for documents.", "ConnectSinkRecordConverter", 4, ConfigDef.Width.NONE, "Collection Format")
+		.define(ConnectSinkRecordConverter.CSRC_COLLECTION_CASE, Type.STRING, "as-is", Importance.MEDIUM, "Case used for the generated collection: as-is, lower, upper, camel", "ConnectSinkRecordConverter", 5, ConfigDef.Width.NONE, "Collection Case", Collections.emptyList(), STRING_CASE_RECOMMENDER)
 		;
 
 	public MarkLogicSinkConfig(final Map<?, ?> originals) {

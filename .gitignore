@@ -35,4 +35,5 @@ testConfig/
 *.prefs
 
 # Local files
-*-local*.properties
+*-local*.*
+*-local*

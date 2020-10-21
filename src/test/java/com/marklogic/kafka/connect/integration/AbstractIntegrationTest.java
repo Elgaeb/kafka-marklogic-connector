@@ -119,7 +119,7 @@ public abstract class AbstractIntegrationTest {
         }
     }
 
-    @AfterEach
+//    @AfterEach
     public void cleanup() {
         deleteTestCollections();
     }

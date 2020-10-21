@@ -1,6 +1,7 @@
 package com.marklogic.kafka.connect.sink;
 
 import com.marklogic.client.document.DocumentWriteOperation;
+import com.marklogic.client.ext.document.CaseConverter;
 import com.marklogic.client.ext.document.ContentIdExtractor;
 import com.marklogic.client.ext.util.DefaultDocumentPermissionsParser;
 import com.marklogic.client.impl.DocumentWriteOperationImpl;
@@ -40,15 +41,21 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
     private final ContentIdExtractor contentIdExtractor;
 
     public static final String CSRC_TOPIC_REGEX = "ml.connectSinkRecordConverter.topicRegex";
-    public static final String CSRC_URI_FORMAT = "ml.connectSinkRecordConverter.uriFormat";
-    public static final String CSRC_COLLECTION_FORMAT = "ml.connectSinkRecordConverter.collectionFormat";
+    public static final String CSRC_URI_FORMATSTRING = "ml.connectSinkRecordConverter.uriFormat";
+    public static final String CSRC_URI_CASE = "ml.connectSinkRecordConverter.uriCase";
+    public static final String CSRC_COLLECTION_FORMATSTRING = "ml.connectSinkRecordConverter.collectionFormat";
+    public static final String CSRC_COLLECTION_CASE = "ml.connectSinkRecordConverter.collectionCase";
 
     private final List<String> collections;
     private final String permissions;
 
+    private final CaseConverter uriCaseConverter;
+    private final CaseConverter collectionCaseConverter;
+
+
     public ConnectSinkRecordConverter(Map<String, Object> kafkaConfig) {
-        this.uriFormat = (String) kafkaConfig.getOrDefault(CSRC_URI_FORMAT, "/%2$s.json");
-        this.collectionFormat = (String) kafkaConfig.get(CSRC_COLLECTION_FORMAT);
+        this.uriFormat = (String) kafkaConfig.getOrDefault(CSRC_URI_FORMATSTRING, "/%2$s.json");
+        this.collectionFormat = (String) kafkaConfig.get(CSRC_COLLECTION_FORMATSTRING);
 
         String topicRegex = (String) kafkaConfig.get(CSRC_TOPIC_REGEX);
         if(topicRegex != null) {
@@ -71,6 +78,9 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
         } catch(InstantiationException | IllegalAccessException ex) {
             throw new RuntimeException(ex);
         }
+
+        this.uriCaseConverter = CaseConverter.ofType((String)kafkaConfig.get(CSRC_URI_CASE));
+        this.collectionCaseConverter = CaseConverter.ofType((String)kafkaConfig.get(CSRC_COLLECTION_CASE));
 
         this.converter = new JsonConverter();
         Map<String, Object> config = new HashMap<>();
@@ -100,7 +110,7 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
     protected DocumentMetadataHandle toDocumentMetadata(SinkRecord sinkRecord, Object[] formatParameters) {
         DocumentMetadataHandle metadata = new DocumentMetadataHandle();
         if(this.collectionFormat != null) {
-            metadata.getCollections().add(String.format(this.collectionFormat, formatParameters));
+            metadata.getCollections().add(this.collectionCaseConverter.convert(String.format(this.collectionFormat, formatParameters)));
         }
         return metadata;
     }
@@ -112,7 +122,7 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
         Object value = record.value();
 
         final Schema headersSchema = SchemaBuilder.struct()
-                .field("topicName", Schema.OPTIONAL_STRING_SCHEMA)
+                .field("topic", Schema.OPTIONAL_STRING_SCHEMA)
                 .build();
         final Schema envelopeSchema = SchemaBuilder.struct()
                 .field("headers", headersSchema)
@@ -123,7 +133,7 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
                 .build();
 
         Struct headers = new Struct(headersSchema);
-        headers.put("topicName", record.topic());
+        headers.put("topic", record.topic());
 
         Struct envelope = new Struct(envelopeSchema);
         envelope.put("headers", headers);
@@ -134,7 +144,6 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
 
         StructWriteHandle content = new StructWriteHandle(this.converter)
                 .with(rootSchema, root)
-//                    .with(record.valueSchema(), (Struct) value)
                 .withFormat(Format.JSON);
 
         return content;
@@ -163,6 +172,6 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
     }
 
     protected String toUri(SinkRecord sinkRecord, Object[] formatParameters) {
-        return String.format(this.uriFormat, formatParameters);
+        return this.uriCaseConverter.convert(String.format(this.uriFormat, formatParameters));
     }
 }
