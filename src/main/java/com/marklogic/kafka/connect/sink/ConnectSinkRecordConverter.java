@@ -120,13 +120,15 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
             throw new NullPointerException("'record' must not be null, and must have a value.");
         }
         Object value = record.value();
+        Schema valueSchema = record.valueSchema();
 
         final Schema headersSchema = SchemaBuilder.struct()
                 .field("topic", Schema.OPTIONAL_STRING_SCHEMA)
+                .field("timestamp", Schema.OPTIONAL_INT64_SCHEMA)
                 .build();
         final Schema envelopeSchema = SchemaBuilder.struct()
                 .field("headers", headersSchema)
-                .field("instance", record.valueSchema())
+                .field("instance", valueSchema)
                 .build();
         final Schema rootSchema = SchemaBuilder.struct()
                 .field("envelope", envelopeSchema)
@@ -134,6 +136,7 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
 
         Struct headers = new Struct(headersSchema);
         headers.put("topic", record.topic());
+        headers.put("timestamp", record.timestamp());
 
         Struct envelope = new Struct(envelopeSchema);
         envelope.put("headers", headers);

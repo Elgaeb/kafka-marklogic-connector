@@ -13,10 +13,11 @@ function newBaseDocument({ schema, table, topic }) {
             headers: {
                 schema,
                 table,
-                topic
+                topic,
+                columnUpdatedTimestamp: {}
             },
             triples: [],
-            instance: {}
+            instance: {},
         }
     }
 
@@ -40,6 +41,7 @@ exports.transform = function transform(context, params, content) {
 
     const uri = context.uri;
     const headers = root.envelope.headers;
+    const timestamp = headers.timestamp;
     const topic = headers.topic;
 
     const topicParts = topic.split("-");
@@ -49,15 +51,17 @@ exports.transform = function transform(context, params, content) {
     const baseDocument = getBaseDocument({ schema, table, topic, uri });
 
     const baseInstance = baseDocument.envelope.instance[schema][table];
+    const baseHeaders = baseDocument.envelope.headers;
     const instance = root.envelope.instance;
 
     Object.keys(instance).forEach(key => {
         const value = instance[key];
         const camelKey = toCamelCase(key);
 
-        if(value == null) {
-            delete baseInstance[camelKey];
-        } else {
+        const oldTimestamp = baseHeaders.columnUpdatedTimestamp[camelKey];
+
+        if(timestamp == null || oldTimestamp == null || oldTimestamp < timestamp) {
+            baseHeaders.columnUpdatedTimestamp[camelKey] = timestamp;
             baseInstance[camelKey] = value;
         }
     });
