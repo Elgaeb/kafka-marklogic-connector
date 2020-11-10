@@ -54,6 +54,12 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
             throw new NullPointerException("'record' must not be null, and must have a value and schema.");
         }
 
+        Struct message = (Struct) record.value();
+        Struct source = message.getStruct("source");
+
+        Long timestamp = source.getInt64("ts_ms");
+        Long scn = source.getInt64("scn");
+
         String[] schemaNameParts = valueSchema.name().split("[.]");
         String oracleDatabaseName = schemaNameParts[0];
         String oraclSchemaName = schemaNameParts[1].toUpperCase();
@@ -62,6 +68,7 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
         final Schema headersSchema = SchemaBuilder.struct()
                 .field("topic", Schema.OPTIONAL_STRING_SCHEMA)
                 .field("timestamp", Schema.OPTIONAL_INT64_SCHEMA)
+                .field("scn", Schema.OPTIONAL_INT64_SCHEMA)
                 .field("database", Schema.OPTIONAL_STRING_SCHEMA)
                 .field("schema", Schema.OPTIONAL_STRING_SCHEMA)
                 .field("table", Schema.OPTIONAL_STRING_SCHEMA)
@@ -82,7 +89,8 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
 
         Struct headers = new Struct(headersSchema);
         headers.put("topic", record.topic());
-        headers.put("timestamp", record.timestamp());
+        headers.put("timestamp", timestamp);
+        headers.put("scn", scn);
         headers.put("database", oracleDatabaseName);
         headers.put("schema", oraclSchemaName);
         headers.put("table", oracleTableName);
