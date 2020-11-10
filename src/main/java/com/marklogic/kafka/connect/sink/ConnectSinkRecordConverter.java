@@ -19,6 +19,7 @@ import org.apache.kafka.connect.storage.Converter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +34,7 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
 
     private static final Logger logger = LoggerFactory.getLogger(ConnectSinkRecordConverter.class);
 
-    private Converter converter;
+    protected Converter converter;
 
     private final Pattern topicPattern;
     private final String uriFormat;
@@ -51,7 +52,6 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
 
     private final CaseConverter uriCaseConverter;
     private final CaseConverter collectionCaseConverter;
-
 
     public ConnectSinkRecordConverter(Map<String, Object> kafkaConfig) {
         this.uriFormat = (String) kafkaConfig.getOrDefault(CSRC_URI_FORMATSTRING, "/%2$s.json");
@@ -90,7 +90,7 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
     }
 
     @Override
-    public DocumentWriteOperation convert(SinkRecord sinkRecord) {
+    public UpdateOperation convert(SinkRecord sinkRecord) {
         String[] formatParameters = formatParameters(sinkRecord);
         String uri = toUri(sinkRecord, formatParameters);
         AbstractWriteHandle writeHandle = toWriteHandle(sinkRecord);
@@ -104,7 +104,7 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
             documentMetadataHandle.getCollections().addAll(this.collections);
         }
 
-        return new DocumentWriteOperationImpl(DocumentWriteOperation.OperationType.DOCUMENT_WRITE, uri, documentMetadataHandle, writeHandle);
+        return UpdateOperation.of(Collections.singletonList(new DocumentWriteOperationImpl(DocumentWriteOperation.OperationType.DOCUMENT_WRITE, uri, documentMetadataHandle, writeHandle)));
     }
 
     protected DocumentMetadataHandle toDocumentMetadata(SinkRecord sinkRecord, Object[] formatParameters) {
@@ -115,12 +115,10 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
         return metadata;
     }
 
-    protected AbstractWriteHandle toWriteHandle(SinkRecord record) {
-        if ((record == null) || (record.value() == null)) {
-            throw new NullPointerException("'record' must not be null, and must have a value.");
+    protected AbstractWriteHandle toWriteHandle(SinkRecord record, Schema valueSchema, Object value) {
+        if ((record == null) || (value == null) || valueSchema == null) {
+            throw new NullPointerException("'record' must not be null, and must have a value and schema.");
         }
-        Object value = record.value();
-        Schema valueSchema = record.valueSchema();
 
         final Schema headersSchema = SchemaBuilder.struct()
                 .field("topic", Schema.OPTIONAL_STRING_SCHEMA)
@@ -150,6 +148,15 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
                 .withFormat(Format.JSON);
 
         return content;
+
+    }
+
+    protected AbstractWriteHandle toWriteHandle(SinkRecord record) {
+        if (record == null) {
+            throw new NullPointerException("'record' must not be null, and must have a value.");
+        }
+
+        return toWriteHandle(record, record.valueSchema(), record.value());
     }
 
     protected String[] formatParameters(SinkRecord sinkRecord) {
@@ -176,5 +183,13 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
 
     protected String toUri(SinkRecord sinkRecord, Object[] formatParameters) {
         return this.uriCaseConverter.convert(String.format(this.uriFormat, formatParameters));
+    }
+
+    public List<String> getCollections() {
+        return collections;
+    }
+
+    public String getPermissions() {
+        return permissions;
     }
 }

@@ -4,13 +4,13 @@ import com.marklogic.client.DatabaseClient;
 import com.marklogic.client.datamovement.DataMovementManager;
 import com.marklogic.client.datamovement.WriteBatcher;
 import com.marklogic.client.document.DocumentWriteOperation;
+import com.marklogic.client.document.GenericDocumentManager;
 import com.marklogic.client.document.ServerTransform;
 import com.marklogic.client.ext.DatabaseClientConfig;
 import com.marklogic.client.ext.DefaultConfiguredDatabaseClientFactory;
 import com.marklogic.kafka.connect.DefaultDatabaseClientConfigBuilder;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
@@ -144,6 +144,39 @@ public class MarkLogicSinkTask extends SinkTask {
 		logger.info("Stopped");
 	}
 
+	protected void addUpdate(DocumentWriteOperation writeOperation) {
+		String uri = writeOperation.getUri();
+
+		if(this.currentBatch.contains(uri)) {
+			// updating a document that's already in this batch. Need to flush.
+			logger.info("Detected uri {} in existing batch. Flushing.", uri);
+			writeBatcher.flushAsync();
+			this.currentBatch.clear();
+		}
+
+		writeBatcher.add(writeOperation);
+
+		this.currentBatch.add(uri);
+		if(this.currentBatch.size() == this.batchSize) {
+			// TODO: There has to be a better way...
+			this.currentBatch.clear();
+		}
+	}
+
+	protected void addDeletes(Set<String> uris) {
+		if(uris != null && uris.size() > 0) {
+			if (this.currentBatch.stream().anyMatch(uris::contains)) {
+				logger.info("Detected uri in existing batch. Flushing before delete.");
+				writeBatcher.flushAsync();
+				this.currentBatch.clear();
+			}
+
+			GenericDocumentManager documentManager = this.databaseClient.newDocumentManager();
+			String[] urisArray = uris.toArray(new String[uris.size()]);
+			documentManager.delete(urisArray);
+		}
+	}
+
 	/**
 	 * This is doing all the work of writing to MarkLogic, which includes calling flushAsync on the WriteBatcher.
 	 * Alternatively, could move the flushAsync call to an overridden flush() method. Kafka defaults to flushing every
@@ -168,23 +201,9 @@ public class MarkLogicSinkTask extends SinkTask {
 					logger.debug("Processing record value {} in topic {}", record.value(), record.topic());
 				}
 				if (record.value() != null) {
-					DocumentWriteOperation writeOperation = sinkRecordConverter.convert(record);
-					String uri = writeOperation.getUri();
-
-					if(this.currentBatch.contains(uri)) {
-						// updating a document that's already in this batch. Need to flush.
-						logger.info("Detected uri {} in existing batch. Flushing.", uri);
-						writeBatcher.flushAsync();
-						this.currentBatch.clear();
-					}
-
-					writeBatcher.add(writeOperation);
-
-					this.currentBatch.add(uri);
-					if(this.currentBatch.size() == this.batchSize) {
-						// TODO: There has to be a better way...
-						this.currentBatch.clear();
-					}
+					UpdateOperation updateOperation = sinkRecordConverter.convert(record);
+					this.addDeletes(updateOperation.getDeletes());
+					updateOperation.getWrites().forEach(this::addUpdate);
 				} else {
 					logger.warn("Skipping record with null value - possibly a 'tombstone' message.");
 				}

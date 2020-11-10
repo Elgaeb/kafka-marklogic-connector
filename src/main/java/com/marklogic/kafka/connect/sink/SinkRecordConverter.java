@@ -1,6 +1,5 @@
 package com.marklogic.kafka.connect.sink;
 
-import com.marklogic.client.document.DocumentWriteOperation;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 /**
@@ -9,7 +8,5 @@ import org.apache.kafka.connect.sink.SinkRecord;
  * dependency on a running MarkLogic or running Kafka instance.
  */
 public interface SinkRecordConverter {
-
-	DocumentWriteOperation convert(SinkRecord sinkRecord);
-
+	UpdateOperation convert(SinkRecord sinkRecord);
 }

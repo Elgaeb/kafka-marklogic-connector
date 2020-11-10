@@ -19,9 +19,7 @@ import org.apache.kafka.connect.storage.Converter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Handles converting a SinkRecord into a DocumentWriteOperation via the properties in the given config map.
@@ -67,12 +65,12 @@ public class DefaultSinkRecordConverter implements SinkRecordConverter {
     }
 
     @Override
-    public DocumentWriteOperation convert(SinkRecord sinkRecord) {
-        return documentWriteOperationBuilder.build(
+    public UpdateOperation convert(SinkRecord sinkRecord) {
+        return UpdateOperation.of(Collections.singletonList(documentWriteOperationBuilder.build(
                 sinkRecord,
                 toContent(sinkRecord),
                 addTopicToCollections(sinkRecord.topic(), addTopicToCollections)
-        );
+        )));
     }
 
     /**

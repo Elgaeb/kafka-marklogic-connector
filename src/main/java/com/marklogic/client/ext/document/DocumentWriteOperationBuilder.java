@@ -37,7 +37,8 @@ public class DocumentWriteOperationBuilder {
 	}
 
 	protected String buildUri(SinkRecord sinkRecord, AbstractWriteHandle content) {
-		String uri = contentIdExtractor.extractId(sinkRecord);
+		String contentId = contentIdExtractor.extractId(sinkRecord);
+		String uri = contentId;
 		if (hasText(uriPrefix)) {
 			uri = uriPrefix + uri;
 		}

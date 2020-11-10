@@ -37,7 +37,9 @@ public class ConvertSinkRecordTest {
 		config.put(MarkLogicSinkConfig.DOCUMENT_CONTENT_ID_EXTRACTOR, DefaultContentIdExtractor.class);
 		converter = new DefaultSinkRecordConverter(config);
 
-		DocumentWriteOperation op = converter.convert(newSinkRecord("test"));
+		UpdateOperation updateOperation = converter.convert(newSinkRecord("test"));
+		assertEquals(1, updateOperation.getWrites().size());
+		DocumentWriteOperation op = updateOperation.getWrites().get(0);
 
 		assertTrue(op.getUri().startsWith("/example/"));
 		assertTrue(op.getUri().endsWith(".json"));
@@ -66,7 +68,9 @@ public class ConvertSinkRecordTest {
 
 		converter.getDocumentWriteOperationBuilder().withContentIdExtractor((sinkRecord) -> "12345");
 
-		DocumentWriteOperation op = converter.convert(newSinkRecord("doesn't matter"));
+		UpdateOperation updateOperation = converter.convert(newSinkRecord("doesn't matter"));
+		assertEquals(1, updateOperation.getWrites().size());
+		DocumentWriteOperation op = updateOperation.getWrites().get(0);
 
 		assertEquals("12345", op.getUri());
 
@@ -81,7 +85,9 @@ public class ConvertSinkRecordTest {
 		config.put(MarkLogicSinkConfig.DOCUMENT_CONTENT_ID_EXTRACTOR, DefaultContentIdExtractor.class);
 		converter = new DefaultSinkRecordConverter(config);
 
-		DocumentWriteOperation op = converter.convert(newSinkRecord("hello world".getBytes()));
+		UpdateOperation updateOperation = converter.convert(newSinkRecord("hello world".getBytes()));
+		assertEquals(1, updateOperation.getWrites().size());
+		DocumentWriteOperation op = updateOperation.getWrites().get(0);
 
 		BytesHandle content = (BytesHandle)op.getContent();
 		assertEquals("hello world".getBytes().length, content.get().length);

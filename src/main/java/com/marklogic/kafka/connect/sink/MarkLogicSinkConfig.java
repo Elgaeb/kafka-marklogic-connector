@@ -59,6 +59,12 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 	public static final String SSL_HOST_VERIFIER = "ml.connection.customSsl.hostNameVerifier";
 	public static final String SSL_MUTUAL_AUTH = "ml.connection.customSsl.mutualAuth";
 
+	public static final String CSRC_TOPIC_REGEX = "ml.connectSinkRecordConverter.topicRegex";
+	public static final String CSRC_URI_FORMATSTRING = "ml.connectSinkRecordConverter.uriFormat";
+	public static final String CSRC_URI_CASE = "ml.connectSinkRecordConverter.uriCase";
+	public static final String CSRC_COLLECTION_FORMATSTRING = "ml.connectSinkRecordConverter.collectionFormat";
+	public static final String CSRC_COLLECTION_CASE = "ml.connectSinkRecordConverter.collectionCase";
+
 	private static final AlwaysVisibleRecommender KEYSTORE_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("pkcs12", "jks");
 	private static final AlwaysVisibleRecommender HOSTNAME_VERIFIER_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("ANY", "COMMON", "STRICT");
 	private static final AlwaysVisibleRecommender DOCUMENT_FORMAT_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("json", "xml", "text", "binary", "unknown");
@@ -66,7 +72,7 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 	private static final AlwaysVisibleRecommender SECURITY_CONTEXT_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("digest", "basic", "kerberos", "certificate", "none");
 	private static final AlwaysVisibleRecommender SSL_CONNECTION_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("none", "simple", "default", "custom");
 	private static final AlwaysVisibleRecommender CONTENT_ID_EXTRACTOR_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(SchemaContentIdExtractor.class, DefaultContentIdExtractor.class);
-	private static final AlwaysVisibleRecommender SINK_RECORD_CONVERTER_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(DefaultSinkRecordConverter.class, ConnectSinkRecordConverter.class);
+	private static final AlwaysVisibleRecommender SINK_RECORD_CONVERTER_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(DefaultSinkRecordConverter.class, ConnectSinkRecordConverter.class, DebeziumOracleSinkRecordConverter.class);
 	private static final AlwaysVisibleRecommender STRING_CASE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("as-is", "lower", "upper", "camel");
 
 	public static ConfigDef CONFIG_DEF = new ConfigDef()
