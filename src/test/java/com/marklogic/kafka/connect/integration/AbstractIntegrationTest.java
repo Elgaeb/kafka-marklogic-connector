@@ -23,6 +23,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public abstract class AbstractIntegrationTest {
     private Map<String, String> originalConfiguration;
     private Map<String, Object> config;
@@ -32,13 +34,20 @@ public abstract class AbstractIntegrationTest {
         return getOriginalConfiguration(null);
     }
 
-    protected Map<String, String> getOriginalConfiguration(Map<String, String> additionalProperties) {
+    protected Map<String, String> getOriginalConfiguration(Map<String, String> additionalProperties, String... additionalDataSets) {
         if(this.originalConfiguration == null) {
             Properties props = new Properties();
 
             try (InputStream is = this.getClass().getResourceAsStream("/kafka.properties")) {
                 props.load(is);
             } catch (Throwable t) {
+            }
+
+            for(String dataSet : additionalDataSets) {
+                try (InputStream is = this.getClass().getResourceAsStream("/kafka-" + dataSet + ".properties")) {
+                    props.load(is);
+                } catch (Throwable t) {
+                }
             }
 
             try (InputStream is = this.getClass().getResourceAsStream("/kafka-local.properties")) {
@@ -119,7 +128,23 @@ public abstract class AbstractIntegrationTest {
         }
     }
 
-    @AfterEach
+    protected Map<String, Object> extractInstance(String schemaName, String tableName, Map<String, Object> document) {
+        Map<String, Object> envelope = (Map<String, Object>) document.get("envelope");
+        assertThat(envelope).isNotNull();
+
+        Map<String, Object> instance = (Map<String, Object>) envelope.get("instance");
+        assertThat(instance).isNotNull();
+
+        Map<String, Object> schema = (Map<String, Object>) instance.get(schemaName);
+        assertThat(instance).isNotNull();
+
+        Map<String, Object> table = (Map<String, Object>) schema.get(tableName);
+        assertThat(instance).isNotNull();
+
+        return table;
+    }
+
+    //    @AfterEach
     public void cleanup() {
         deleteTestCollections();
     }

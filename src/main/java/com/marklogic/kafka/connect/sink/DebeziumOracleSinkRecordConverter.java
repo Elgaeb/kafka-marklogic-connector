@@ -1,11 +1,13 @@
 package com.marklogic.kafka.connect.sink;
 
 import com.marklogic.client.document.DocumentWriteOperation;
+import com.marklogic.client.ext.document.CaseConverter;
 import com.marklogic.client.ext.util.DefaultDocumentPermissionsParser;
 import com.marklogic.client.impl.DocumentWriteOperationImpl;
 import com.marklogic.client.io.DocumentMetadataHandle;
 import com.marklogic.client.io.Format;
 import com.marklogic.client.io.marker.AbstractWriteHandle;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -15,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Handles converting a SinkRecord into a DocumentWriteOperation via the properties in the given config map.
@@ -54,6 +57,20 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
             throw new NullPointerException("'record' must not be null, and must have a value and schema.");
         }
 
+        CaseConverter camelConverter = CaseConverter.ofType("camel");
+
+        Struct valueStruct = (Struct)value;
+
+        List<Triple<String, Schema, Object>> convertedFields = valueSchema.fields().stream()
+                .map(field -> Triple.of(camelConverter.convert(field.name()), field.schema(), valueStruct.get(field)))
+                .collect(Collectors.toList());
+
+        SchemaBuilder convertedValueSchemaBuilder = SchemaBuilder.struct();
+        convertedFields.forEach(triple -> convertedValueSchemaBuilder.field(triple.getLeft(), triple.getMiddle()));
+        Schema convertedValueSchema = convertedValueSchemaBuilder.build();
+        Struct convertedValue = new Struct(convertedValueSchema);
+        convertedFields.forEach(triple -> convertedValue.put(triple.getLeft(), triple.getRight()));
+
         Struct message = (Struct) record.value();
         Struct source = message.getStruct("source");
 
@@ -74,7 +91,7 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
                 .field("table", Schema.OPTIONAL_STRING_SCHEMA)
                 .build();
         final Schema oracleSchemaSchema = SchemaBuilder.struct()
-                .field(oracleTableName, valueSchema)
+                .field(oracleTableName, convertedValueSchema)
                 .build();
         final Schema instanceSchema = SchemaBuilder.struct()
                 .field(oraclSchemaName, oracleSchemaSchema)
@@ -96,7 +113,7 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
         headers.put("table", oracleTableName);
 
         Struct oracleSchema = new Struct(oracleSchemaSchema);
-        oracleSchema.put(oracleTableName, value);
+        oracleSchema.put(oracleTableName, convertedValue);
 
         Struct instance = new Struct(instanceSchema);
         instance.put(oraclSchemaName, oracleSchema);
@@ -140,7 +157,6 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
                         if(this.getCollections() != null) {
                             documentMetadataHandle.getCollections().addAll(this.getCollections());
                         }
-
 
                         AbstractWriteHandle writeHandle = toWriteHandle(sinkRecord);
                         DocumentWriteOperation writeOperation = new DocumentWriteOperationImpl(DocumentWriteOperation.OperationType.DOCUMENT_WRITE, uri, documentMetadataHandle, writeHandle);
