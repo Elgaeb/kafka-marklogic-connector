@@ -28,8 +28,6 @@ public class DebeziumInsertTest extends AbstractDebeziumIntegrationTest {
         MarkLogicSinkTask task = new MarkLogicSinkTask();
 
         Map<String, String> additionalConfig = new HashMap<>();
-//        additionalConfig.put(MarkLogicSinkConfig.DMSDK_TRANSFORM, "kafka-update");
-//        additionalConfig.put(MarkLogicSinkConfig.DOCUMENT_CONVERTER, "com.marklogic.kafka.connect.sink.DebeziumOracleSinkRecordConverter");
         Map<String, String> config = getOriginalConfiguration(additionalConfig, "debezium");
         task.start(config);
 
