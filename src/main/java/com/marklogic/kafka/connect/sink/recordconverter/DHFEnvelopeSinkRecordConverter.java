@@ -1,13 +1,14 @@
-package com.marklogic.kafka.connect.sink;
+package com.marklogic.kafka.connect.sink.recordconverter;
 
-import com.marklogic.client.document.DocumentWriteOperation;
-import com.marklogic.client.ext.document.ContentIdExtractor;
-import com.marklogic.client.ext.document.DocumentWriteOperationBuilder;
+import com.marklogic.kafka.connect.sink.DocumentWriteOperationBuilder;
 import com.marklogic.client.io.BytesHandle;
 import com.marklogic.client.io.DocumentMetadataHandle;
 import com.marklogic.client.io.Format;
 import com.marklogic.client.io.StringHandle;
 import com.marklogic.client.io.marker.AbstractWriteHandle;
+import com.marklogic.kafka.connect.sink.MarkLogicSinkConfig;
+import com.marklogic.kafka.connect.sink.StructWriteHandle;
+import com.marklogic.kafka.connect.sink.UpdateOperation;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -24,9 +25,9 @@ import java.util.*;
 /**
  * Handles converting a SinkRecord into a DocumentWriteOperation via the properties in the given config map.
  */
-public class DefaultSinkRecordConverter implements SinkRecordConverter {
+public class DHFEnvelopeSinkRecordConverter implements SinkRecordConverter {
 
-    private static final Logger logger = LoggerFactory.getLogger(DefaultSinkRecordConverter.class);
+    private static final Logger logger = LoggerFactory.getLogger(DHFEnvelopeSinkRecordConverter.class);
 
     private DocumentWriteOperationBuilder documentWriteOperationBuilder;
     private Format format;
@@ -35,18 +36,11 @@ public class DefaultSinkRecordConverter implements SinkRecordConverter {
 
     private Converter converter;
 
-    public DefaultSinkRecordConverter(Map<String, Object> kafkaConfig) {
+    public DHFEnvelopeSinkRecordConverter(Map<String, Object> kafkaConfig) {
         addTopicToCollections = (Boolean) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_COLLECTIONS_ADD_TOPIC);
-        try {
-            documentWriteOperationBuilder = new DocumentWriteOperationBuilder()
-                    .withCollections((List<String>) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_COLLECTIONS))
-                    .withPermissions((String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_PERMISSIONS))
-                    .withUriPrefix((String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_URI_PREFIX))
-                    .withUriSuffix((String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_URI_SUFFIX))
-                    .withContentIdExtractor((ContentIdExtractor) ((Class)kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_CONTENT_ID_EXTRACTOR)).newInstance());
-        } catch(InstantiationException | IllegalAccessException ex) {
-            throw new RuntimeException(ex);
-        }
+        documentWriteOperationBuilder = new DocumentWriteOperationBuilder(kafkaConfig)
+                .withCollections((List<String>) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_COLLECTIONS))
+                .withPermissions((String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_PERMISSIONS));
 
         String val = (String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_FORMAT);
         if (val != null && val.trim().length() > 0) {
@@ -108,7 +102,7 @@ public class DefaultSinkRecordConverter implements SinkRecordConverter {
         }
         if (value instanceof Struct) {
             final Schema headersSchema = SchemaBuilder.struct()
-                    .field("topicName", Schema.STRING_SCHEMA)
+                    .field("topic", Schema.STRING_SCHEMA)
                     .build();
             final Schema envelopeSchema = SchemaBuilder.struct()
                     .field("headers", headersSchema)
@@ -119,7 +113,7 @@ public class DefaultSinkRecordConverter implements SinkRecordConverter {
                     .build();
 
             Struct headers = new Struct(headersSchema);
-            headers.put("topicName", record.topic());
+            headers.put("topic", record.topic());
 
             Struct envelope = new Struct(envelopeSchema);
             envelope.put("headers", headers);

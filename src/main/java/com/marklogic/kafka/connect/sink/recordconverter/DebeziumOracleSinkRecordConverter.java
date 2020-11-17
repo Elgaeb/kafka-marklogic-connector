@@ -1,12 +1,14 @@
-package com.marklogic.kafka.connect.sink;
+package com.marklogic.kafka.connect.sink.recordconverter;
 
 import com.marklogic.client.document.DocumentWriteOperation;
-import com.marklogic.client.ext.document.CaseConverter;
+import com.marklogic.kafka.connect.sink.util.CaseConverter;
 import com.marklogic.client.ext.util.DefaultDocumentPermissionsParser;
 import com.marklogic.client.impl.DocumentWriteOperationImpl;
 import com.marklogic.client.io.DocumentMetadataHandle;
 import com.marklogic.client.io.Format;
 import com.marklogic.client.io.marker.AbstractWriteHandle;
+import com.marklogic.kafka.connect.sink.StructWriteHandle;
+import com.marklogic.kafka.connect.sink.UpdateOperation;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
@@ -31,7 +33,7 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
     }
 
     @Override
-    protected AbstractWriteHandle toWriteHandle(SinkRecord record) {
+    protected AbstractWriteHandle toWriteHandle(SinkRecord record, Map<String, Object> sourceMetadata) {
         Object rawValue = record.value();
         if(!Struct.class.isInstance(rawValue)) {
             throw new IllegalArgumentException("schema registry must be enabled.");
@@ -48,11 +50,11 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
             throw new NullPointerException("'after' must not be null and must have a schema.");
         }
 
-        return toWriteHandle(record, afterSchema, afterValue);
+        return toWriteHandle(record, afterSchema, afterValue, sourceMetadata);
     }
 
     @Override
-    protected AbstractWriteHandle toWriteHandle(SinkRecord record, Schema valueSchema, Object value) {
+    protected AbstractWriteHandle toWriteHandle(SinkRecord record, Schema valueSchema, Object value, Map<String, Object> sourceMetadata) {
         if ((record == null) || (value == null) || valueSchema == null) {
             throw new NullPointerException("'record' must not be null, and must have a value and schema.");
         }
@@ -135,8 +137,8 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
 
     @Override
     public UpdateOperation convert(SinkRecord sinkRecord) {
-        String[] formatParameters = formatParameters(sinkRecord);
-        String uri = toUri(sinkRecord, formatParameters);
+        Map<String, Object> sourceMetadata = this.sourceMetadataExtractor.extract(sinkRecord);
+        String uri = this.uriFormatter.uri(sourceMetadata);
 
         Object messageObject = sinkRecord.value();
         if(messageObject != null) {
@@ -148,7 +150,7 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
                     case "c": // create
                     case "r": // read
                     case "u": // update
-                        DocumentMetadataHandle documentMetadataHandle = toDocumentMetadata(sinkRecord, formatParameters);
+                        DocumentMetadataHandle documentMetadataHandle = toDocumentMetadata(sinkRecord, sourceMetadata);
 
                         if (this.getPermissions() != null) {
                             new DefaultDocumentPermissionsParser().parsePermissions(this.getPermissions(), documentMetadataHandle.getPermissions());
@@ -158,7 +160,7 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
                             documentMetadataHandle.getCollections().addAll(this.getCollections());
                         }
 
-                        AbstractWriteHandle writeHandle = toWriteHandle(sinkRecord);
+                        AbstractWriteHandle writeHandle = toWriteHandle(sinkRecord, sourceMetadata);
                         DocumentWriteOperation writeOperation = new DocumentWriteOperationImpl(DocumentWriteOperation.OperationType.DOCUMENT_WRITE, uri, documentMetadataHandle, writeHandle);
                         List<DocumentWriteOperation> writeOperations = Collections.singletonList(writeOperation);
 

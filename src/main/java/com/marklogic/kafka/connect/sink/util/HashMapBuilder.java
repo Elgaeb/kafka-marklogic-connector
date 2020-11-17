@@ -1,4 +1,4 @@
-package com.marklogic.util;
+package com.marklogic.kafka.connect.sink.util;
 
 import java.util.HashMap;
 import java.util.Map;

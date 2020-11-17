@@ -9,6 +9,7 @@ import com.marklogic.client.document.ServerTransform;
 import com.marklogic.client.ext.DatabaseClientConfig;
 import com.marklogic.client.ext.DefaultConfiguredDatabaseClientFactory;
 import com.marklogic.kafka.connect.DefaultDatabaseClientConfigBuilder;
+import com.marklogic.kafka.connect.sink.recordconverter.SinkRecordConverter;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;

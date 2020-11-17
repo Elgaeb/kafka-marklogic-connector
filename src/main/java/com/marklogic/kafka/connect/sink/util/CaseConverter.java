@@ -1,7 +1,6 @@
-package com.marklogic.client.ext.document;
+package com.marklogic.kafka.connect.sink.util;
 
 import org.apache.commons.text.CaseUtils;
-import org.apache.commons.text.WordUtils;
 
 public interface CaseConverter {
 

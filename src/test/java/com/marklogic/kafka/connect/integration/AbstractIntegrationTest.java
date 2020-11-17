@@ -144,7 +144,7 @@ public abstract class AbstractIntegrationTest {
         return table;
     }
 
-    //    @AfterEach
+    @AfterEach
     public void cleanup() {
         deleteTestCollections();
     }

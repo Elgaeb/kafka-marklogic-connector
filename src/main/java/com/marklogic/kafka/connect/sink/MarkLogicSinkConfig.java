@@ -1,7 +1,10 @@
 package com.marklogic.kafka.connect.sink;
 
-import com.marklogic.client.ext.document.DefaultContentIdExtractor;
-import com.marklogic.client.ext.document.SchemaContentIdExtractor;
+import com.marklogic.kafka.connect.sink.metadata.DebeziumOracleSourceMetadataExtractor;
+import com.marklogic.kafka.connect.sink.metadata.UUIDSourceMetadataExtractor;
+import com.marklogic.kafka.connect.sink.recordconverter.ConnectSinkRecordConverter;
+import com.marklogic.kafka.connect.sink.recordconverter.DHFEnvelopeSinkRecordConverter;
+import com.marklogic.kafka.connect.sink.recordconverter.DebeziumOracleSinkRecordConverter;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
@@ -31,7 +34,7 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 	public static final String CONNECTION_TRUSTSTORE_FORMAT = "ml.connection.truststore.format";
 	public static final String CONNECTION_EXTERNAL_NAME = "ml.connection.externalName";
 
-	public static final String DOCUMENT_CONTENT_ID_EXTRACTOR = "ml.document.contentIdExtractor";
+	public static final String DOCUMENT_SOURCE_METADATA_EXTRACTOR = "ml.document.sourceMetadataExtractor";
 
 	public static final String DATAHUB_FLOW_NAME = "ml.datahub.flow.name";
 	public static final String DATAHUB_FLOW_STEPS = "ml.datahub.flow.steps";
@@ -50,8 +53,6 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 	public static final String DOCUMENT_PERMISSIONS = "ml.document.permissions";
 	public static final String DOCUMENT_FORMAT = "ml.document.format";
 	public static final String DOCUMENT_MIMETYPE = "ml.document.mimeType";
-	public static final String DOCUMENT_URI_PREFIX = "ml.document.uriPrefix";
-	public static final String DOCUMENT_URI_SUFFIX = "ml.document.uriSuffix";
 	public static final String DOCUMENT_CONVERTER = "ml.document.sinkRecordConverter";
 
 	public static final String SSL_CONNECTION_TYPE = "ml.connection.sslConnectionType";
@@ -59,7 +60,6 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 	public static final String SSL_HOST_VERIFIER = "ml.connection.customSsl.hostNameVerifier";
 	public static final String SSL_MUTUAL_AUTH = "ml.connection.customSsl.mutualAuth";
 
-	public static final String CSRC_TOPIC_REGEX = "ml.connectSinkRecordConverter.topicRegex";
 	public static final String CSRC_URI_FORMATSTRING = "ml.connectSinkRecordConverter.uriFormat";
 	public static final String CSRC_URI_CASE = "ml.connectSinkRecordConverter.uriCase";
 	public static final String CSRC_COLLECTION_FORMATSTRING = "ml.connectSinkRecordConverter.collectionFormat";
@@ -71,8 +71,8 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 	private static final AlwaysVisibleRecommender CONNECTION_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("DIRECT", "GATEWAY");
 	private static final AlwaysVisibleRecommender SECURITY_CONTEXT_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("digest", "basic", "kerberos", "certificate", "none");
 	private static final AlwaysVisibleRecommender SSL_CONNECTION_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("none", "simple", "default", "custom");
-	private static final AlwaysVisibleRecommender CONTENT_ID_EXTRACTOR_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(SchemaContentIdExtractor.class, DefaultContentIdExtractor.class);
-	private static final AlwaysVisibleRecommender SINK_RECORD_CONVERTER_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(DefaultSinkRecordConverter.class, ConnectSinkRecordConverter.class, DebeziumOracleSinkRecordConverter.class);
+	private static final AlwaysVisibleRecommender SOURCE_METADATA_EXTRACTOR_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(DebeziumOracleSourceMetadataExtractor.class, UUIDSourceMetadataExtractor.class);
+	private static final AlwaysVisibleRecommender SINK_RECORD_CONVERTER_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(DHFEnvelopeSinkRecordConverter.class, ConnectSinkRecordConverter.class, DebeziumOracleSinkRecordConverter.class);
 	private static final AlwaysVisibleRecommender STRING_CASE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("as-is", "lower", "upper", "camel");
 
 	public static ConfigDef CONFIG_DEF = new ConfigDef()
@@ -109,21 +109,18 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 
 		.define(DOCUMENT_COLLECTIONS, Type.LIST, null, Importance.MEDIUM, "String-delimited collections to add each document to", "Documents", 1, ConfigDef.Width.NONE, "Additional Collections")
 		.define(DOCUMENT_PERMISSIONS, Type.STRING, "rest-reader,read,rest-writer,update", Importance.MEDIUM, "String-delimited permissions to add to each document; role1,capability1,role2,capability2,etc", "Documents", 2, ConfigDef.Width.NONE, "Document Permissions")
-		.define(DOCUMENT_CONTENT_ID_EXTRACTOR, Type.CLASS, DefaultContentIdExtractor.class, Importance.MEDIUM, "Class used to generate unique IDs for documents.", "Documents", 3, ConfigDef.Width.NONE, "ID Generator", Collections.emptyList(), CONTENT_ID_EXTRACTOR_RECOMMENDER)
-		.define(DOCUMENT_CONVERTER, Type.CLASS, DefaultSinkRecordConverter.class, Importance.LOW, "Defines format of each document; can be one of json, xml, text, binary, or unknown", "Documents", 4, ConfigDef.Width.NONE, "Record Converter", Collections.emptyList(), SINK_RECORD_CONVERTER_RECOMMENDER)
+		.define(DOCUMENT_SOURCE_METADATA_EXTRACTOR, Type.CLASS, UUIDSourceMetadataExtractor.class, Importance.MEDIUM, "Class used to extract metadata from source message.", "Documents", 3, ConfigDef.Width.NONE, "Source Metadata Extractor", Collections.emptyList(), SOURCE_METADATA_EXTRACTOR_RECOMMENDER)
+		.define(DOCUMENT_CONVERTER, Type.CLASS, DHFEnvelopeSinkRecordConverter.class, Importance.LOW, "Defines format of each document; can be one of json, xml, text, binary, or unknown", "Documents", 4, ConfigDef.Width.NONE, "Record Converter", Collections.emptyList(), SINK_RECORD_CONVERTER_RECOMMENDER)
 
-		.define(DOCUMENT_URI_PREFIX, Type.STRING, null, Importance.MEDIUM, "Prefix to prepend to each generated URI", "DefaultSinkRecordConverter", 1, ConfigDef.Width.NONE, "URI Prefix")
-		.define(DOCUMENT_URI_SUFFIX, Type.STRING, null, Importance.MEDIUM, "Suffix to append to each generated URI", "DefaultSinkRecordConverter", 2, ConfigDef.Width.NONE, "URI Suffix")
 		.define(DOCUMENT_COLLECTIONS_ADD_TOPIC, Type.BOOLEAN, false, Importance.LOW, "Indicates if the topic name should be added to the set of collections for a document", "DefaultSinkRecordConverter", 3, ConfigDef.Width.NONE, "Add Topic as Collection")
 		.define(DOCUMENT_TOPIC_COLLECTION_CASE, Type.STRING, "as-is", Importance.LOW, "Case used for the topic collection: as-is, lower, upper, camel", "DefaultSinkRecordConverter", 4, ConfigDef.Width.NONE, "Collection Case", Collections.emptyList(), STRING_CASE_RECOMMENDER)
 		.define(DOCUMENT_FORMAT, Type.STRING, "json", Importance.LOW, "Defines format of each document; can be one of json, xml, text, binary, or unknown", "DefaultSinkRecordConverter", 5, ConfigDef.Width.NONE, "Output Format", Collections.emptyList(), DOCUMENT_FORMAT_RECOMMENDER)
 		.define(DOCUMENT_MIMETYPE, Type.STRING, null, Importance.LOW, "Defines the mime type of each document; optional, and typically the format is set instead of the mime type", "DefaultSinkRecordConverter", 6, ConfigDef.Width.NONE, "MIME Type")
 
-		.define(ConnectSinkRecordConverter.CSRC_TOPIC_REGEX, Type.STRING, null, Importance.MEDIUM, "Regular expression to be applied to the topic for uri and collection generation.", "ConnectSinkRecordConverter", 1, ConfigDef.Width.NONE, "Topic Regex")
-		.define(ConnectSinkRecordConverter.CSRC_URI_FORMATSTRING, Type.STRING, "/%2$s.json", Importance.MEDIUM, "Format string used to generate URIs.", "ConnectSinkRecordConverter", 2, ConfigDef.Width.NONE, "URI Format")
-		.define(ConnectSinkRecordConverter.CSRC_URI_CASE, Type.STRING, "as-is", Importance.MEDIUM, "Case used for the generated uri: as-is, lower, upper, camel", "ConnectSinkRecordConverter", 3, ConfigDef.Width.NONE, "URI Case", Collections.emptyList(), STRING_CASE_RECOMMENDER)
-		.define(ConnectSinkRecordConverter.CSRC_COLLECTION_FORMATSTRING, Type.STRING, null, Importance.MEDIUM, "Format string used to generate an additional collection for documents.", "ConnectSinkRecordConverter", 4, ConfigDef.Width.NONE, "Collection Format")
-		.define(ConnectSinkRecordConverter.CSRC_COLLECTION_CASE, Type.STRING, "as-is", Importance.MEDIUM, "Case used for the generated collection: as-is, lower, upper, camel", "ConnectSinkRecordConverter", 5, ConfigDef.Width.NONE, "Collection Case", Collections.emptyList(), STRING_CASE_RECOMMENDER)
+		.define(CSRC_URI_FORMATSTRING, Type.STRING, "${id}", Importance.MEDIUM, "Format string used to generate URIs.", "ConnectSinkRecordConverter", 2, ConfigDef.Width.NONE, "URI Format")
+		.define(CSRC_URI_CASE, Type.STRING, "as-is", Importance.MEDIUM, "Case used for the generated uri: as-is, lower, upper, camel", "ConnectSinkRecordConverter", 3, ConfigDef.Width.NONE, "URI Case", Collections.emptyList(), STRING_CASE_RECOMMENDER)
+		.define(CSRC_COLLECTION_FORMATSTRING, Type.STRING, null, Importance.MEDIUM, "Format string used to generate an additional collection for documents.", "ConnectSinkRecordConverter", 4, ConfigDef.Width.NONE, "Collection Format")
+		.define(CSRC_COLLECTION_CASE, Type.STRING, "as-is", Importance.MEDIUM, "Case used for the generated collection: as-is, lower, upper, camel", "ConnectSinkRecordConverter", 5, ConfigDef.Width.NONE, "Collection Case", Collections.emptyList(), STRING_CASE_RECOMMENDER)
 		;
 
 	public MarkLogicSinkConfig(final Map<?, ?> originals) {

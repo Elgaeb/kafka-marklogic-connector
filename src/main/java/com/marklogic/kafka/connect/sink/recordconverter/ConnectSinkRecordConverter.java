@@ -1,13 +1,18 @@
-package com.marklogic.kafka.connect.sink;
+package com.marklogic.kafka.connect.sink.recordconverter;
 
 import com.marklogic.client.document.DocumentWriteOperation;
-import com.marklogic.client.ext.document.CaseConverter;
-import com.marklogic.client.ext.document.ContentIdExtractor;
+import com.marklogic.kafka.connect.sink.util.CaseConverter;
+import com.marklogic.kafka.connect.sink.metadata.SourceMetadataExtractor;
+import com.marklogic.kafka.connect.sink.uri.URIFormatter;
 import com.marklogic.client.ext.util.DefaultDocumentPermissionsParser;
 import com.marklogic.client.impl.DocumentWriteOperationImpl;
 import com.marklogic.client.io.DocumentMetadataHandle;
 import com.marklogic.client.io.Format;
 import com.marklogic.client.io.marker.AbstractWriteHandle;
+import com.marklogic.kafka.connect.sink.MarkLogicSinkConfig;
+import com.marklogic.kafka.connect.sink.StructWriteHandle;
+import com.marklogic.kafka.connect.sink.UpdateOperation;
+import org.apache.commons.text.StringSubstitutor;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -23,9 +28,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.MatchResult;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Handles converting a SinkRecord into a DocumentWriteOperation via the properties in the given config map.
@@ -36,51 +38,32 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
 
     protected Converter converter;
 
-    private final Pattern topicPattern;
-    private final String uriFormat;
-    private final String collectionFormat;
-    private final ContentIdExtractor contentIdExtractor;
+    protected final String collectionFormat;
+    protected final SourceMetadataExtractor sourceMetadataExtractor;
 
-    public static final String CSRC_TOPIC_REGEX = "ml.connectSinkRecordConverter.topicRegex";
-    public static final String CSRC_URI_FORMATSTRING = "ml.connectSinkRecordConverter.uriFormat";
-    public static final String CSRC_URI_CASE = "ml.connectSinkRecordConverter.uriCase";
-    public static final String CSRC_COLLECTION_FORMATSTRING = "ml.connectSinkRecordConverter.collectionFormat";
-    public static final String CSRC_COLLECTION_CASE = "ml.connectSinkRecordConverter.collectionCase";
+    protected final List<String> collections;
+    protected final String permissions;
 
-    private final List<String> collections;
-    private final String permissions;
-
-    private final CaseConverter uriCaseConverter;
-    private final CaseConverter collectionCaseConverter;
+    protected final CaseConverter collectionCaseConverter;
+    protected final URIFormatter uriFormatter;
 
     public ConnectSinkRecordConverter(Map<String, Object> kafkaConfig) {
-        this.uriFormat = (String) kafkaConfig.getOrDefault(CSRC_URI_FORMATSTRING, "/%2$s.json");
-        this.collectionFormat = (String) kafkaConfig.get(CSRC_COLLECTION_FORMATSTRING);
-
-        String topicRegex = (String) kafkaConfig.get(CSRC_TOPIC_REGEX);
-        if(topicRegex != null) {
-            this.topicPattern = Pattern.compile(topicRegex);
-        } else {
-            this.topicPattern = null;
-        }
+        this.collectionFormat = (String) kafkaConfig.get(MarkLogicSinkConfig.CSRC_COLLECTION_FORMATSTRING);
 
         this.collections = (List<String>) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_COLLECTIONS);
 
         String permissions = (String) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_PERMISSIONS);
-        if(permissions != null && permissions.trim().length() > 0) {
+        if (permissions != null && permissions.trim().length() > 0) {
             this.permissions = permissions.trim();
         } else {
             this.permissions = null;
         }
 
-        try {
-            this.contentIdExtractor = (ContentIdExtractor) ((Class)kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_CONTENT_ID_EXTRACTOR)).newInstance();
-        } catch(InstantiationException | IllegalAccessException ex) {
-            throw new RuntimeException(ex);
-        }
+        this.sourceMetadataExtractor = SourceMetadataExtractor.newInstance(kafkaConfig);
 
-        this.uriCaseConverter = CaseConverter.ofType((String)kafkaConfig.get(CSRC_URI_CASE));
-        this.collectionCaseConverter = CaseConverter.ofType((String)kafkaConfig.get(CSRC_COLLECTION_CASE));
+        this.collectionCaseConverter = CaseConverter.ofType((String) kafkaConfig.get(MarkLogicSinkConfig.CSRC_COLLECTION_CASE));
+
+        this.uriFormatter = new URIFormatter(kafkaConfig);
 
         this.converter = new JsonConverter();
         Map<String, Object> config = new HashMap<>();
@@ -91,31 +74,31 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
 
     @Override
     public UpdateOperation convert(SinkRecord sinkRecord) {
-        String[] formatParameters = formatParameters(sinkRecord);
-        String uri = toUri(sinkRecord, formatParameters);
-        AbstractWriteHandle writeHandle = toWriteHandle(sinkRecord);
-        DocumentMetadataHandle documentMetadataHandle = toDocumentMetadata(sinkRecord, formatParameters);
+        Map<String, Object> sourceMetadata = this.sourceMetadataExtractor.extract(sinkRecord);
+        String uri = this.uriFormatter.uri(sourceMetadata);
+        AbstractWriteHandle writeHandle = toWriteHandle(sinkRecord, sourceMetadata);
+        DocumentMetadataHandle documentMetadataHandle = toDocumentMetadata(sinkRecord, sourceMetadata);
 
         if (this.permissions != null) {
             new DefaultDocumentPermissionsParser().parsePermissions(this.permissions, documentMetadataHandle.getPermissions());
         }
 
-        if(this.collections != null) {
+        if (this.collections != null) {
             documentMetadataHandle.getCollections().addAll(this.collections);
         }
 
         return UpdateOperation.of(Collections.singletonList(new DocumentWriteOperationImpl(DocumentWriteOperation.OperationType.DOCUMENT_WRITE, uri, documentMetadataHandle, writeHandle)));
     }
 
-    protected DocumentMetadataHandle toDocumentMetadata(SinkRecord sinkRecord, Object[] formatParameters) {
+    protected DocumentMetadataHandle toDocumentMetadata(SinkRecord sinkRecord, Map<String, Object> sourceMetadata) {
         DocumentMetadataHandle metadata = new DocumentMetadataHandle();
-        if(this.collectionFormat != null) {
-            metadata.getCollections().add(this.collectionCaseConverter.convert(String.format(this.collectionFormat, formatParameters)));
+        if (this.collectionFormat != null) {
+            metadata.getCollections().add(this.collectionCaseConverter.convert(StringSubstitutor.replace(this.collectionFormat, sourceMetadata)));
         }
         return metadata;
     }
 
-    protected AbstractWriteHandle toWriteHandle(SinkRecord record, Schema valueSchema, Object value) {
+    protected AbstractWriteHandle toWriteHandle(SinkRecord record, Schema valueSchema, Object value, Map<String, Object> sourceMetadata) {
         if ((record == null) || (value == null) || valueSchema == null) {
             throw new NullPointerException("'record' must not be null, and must have a value and schema.");
         }
@@ -123,6 +106,10 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
         final Schema headersSchema = SchemaBuilder.struct()
                 .field("topic", Schema.OPTIONAL_STRING_SCHEMA)
                 .field("timestamp", Schema.OPTIONAL_INT64_SCHEMA)
+                .field("scn", Schema.OPTIONAL_INT64_SCHEMA)
+                .field("database", Schema.OPTIONAL_STRING_SCHEMA)
+                .field("schema", Schema.OPTIONAL_STRING_SCHEMA)
+                .field("table", Schema.OPTIONAL_STRING_SCHEMA)
                 .build();
         final Schema envelopeSchema = SchemaBuilder.struct()
                 .field("headers", headersSchema)
@@ -135,6 +122,10 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
         Struct headers = new Struct(headersSchema);
         headers.put("topic", record.topic());
         headers.put("timestamp", record.timestamp());
+        headers.put("scn", sourceMetadata.get("scn"));
+        headers.put("database", sourceMetadata.get("database"));
+        headers.put("schema", String.valueOf(sourceMetadata.get("schema")).toUpperCase());
+        headers.put("table", String.valueOf(sourceMetadata.get("table")).toUpperCase());
 
         Struct envelope = new Struct(envelopeSchema);
         envelope.put("headers", headers);
@@ -151,38 +142,12 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
 
     }
 
-    protected AbstractWriteHandle toWriteHandle(SinkRecord record) {
+    protected AbstractWriteHandle toWriteHandle(SinkRecord record, Map<String, Object> sourceMetadata) {
         if (record == null) {
             throw new NullPointerException("'record' must not be null, and must have a value.");
         }
 
-        return toWriteHandle(record, record.valueSchema(), record.value());
-    }
-
-    protected String[] formatParameters(SinkRecord sinkRecord) {
-        String id = contentIdExtractor.extractId(sinkRecord);
-        String topic = sinkRecord.topic();
-        if(topic == null || this.topicPattern == null) {
-            return new String[]{ topic, id };
-        } else {
-            Matcher matcher = topicPattern.matcher(topic);
-            if(matcher.matches()) {
-                MatchResult matchResult = matcher.toMatchResult();
-                int groupCount = matchResult.groupCount() + 1; // make sure to include group 0
-                String[] matches = new String[groupCount + 1];
-                for(int i = 0; i < groupCount; i++) {
-                    matches[i] = matchResult.group(i);
-                }
-                matches[groupCount] = id;
-                return matches;
-            } else {
-                return new String[]{ topic, id };
-            }
-        }
-    }
-
-    protected String toUri(SinkRecord sinkRecord, Object[] formatParameters) {
-        return this.uriCaseConverter.convert(String.format(this.uriFormat, formatParameters));
+        return toWriteHandle(record, record.valueSchema(), record.value(), sourceMetadata);
     }
 
     public List<String> getCollections() {

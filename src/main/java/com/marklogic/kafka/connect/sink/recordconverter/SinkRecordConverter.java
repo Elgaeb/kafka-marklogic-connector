@@ -1,5 +1,6 @@
-package com.marklogic.kafka.connect.sink;
+package com.marklogic.kafka.connect.sink.recordconverter;
 
+import com.marklogic.kafka.connect.sink.UpdateOperation;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 /**

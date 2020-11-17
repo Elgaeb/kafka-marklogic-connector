@@ -49,7 +49,7 @@ public class UpdateTransformTest extends AbstractIntegrationTest {
         task.put(Collections.singleton(record));
         task.stop();
 
-        String expectedUri = "/myorg/schemaname/tablename/7e1c0eda540e8a2715428974c05a3f57b3b0bd6f.json";
+        String expectedUri = "/integration-test/7e1c0eda540e8a2715428974c05a3f57b3b0bd6f.json";
         Map<String, Object> document = readJsonDocument(expectedUri);
         assertThat(document).isNotNull();
 

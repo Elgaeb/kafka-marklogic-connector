@@ -1,5 +1,6 @@
 package com.marklogic.kafka.connect.integration;
 
+import com.marklogic.kafka.connect.integration.AbstractIntegrationTest;
 import com.marklogic.kafka.connect.sink.MarkLogicSinkTask;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -13,7 +14,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class SchemaContentIdExtractorTest extends AbstractIntegrationTest {
+public class InsertTest extends AbstractIntegrationTest {
 
     @Test
     public void testDocumentInsert() throws IOException {
@@ -45,7 +46,7 @@ public class SchemaContentIdExtractorTest extends AbstractIntegrationTest {
         task.put(Collections.singleton(record));
         task.stop();
 
-        String expectedUri = "/myorg/test/topic/7e1c0eda540e8a2715428974c05a3f57b3b0bd6f.json";
+        String expectedUri = "/integration-test/7e1c0eda540e8a2715428974c05a3f57b3b0bd6f.json";
         Map<String, Object> document = readJsonDocument(expectedUri);
         assertThat(document).isNotNull();
 
