@@ -28,7 +28,8 @@ public abstract class AbstractDebeziumIntegrationTest extends AbstractIntegratio
             Struct keyStruct,
             Schema keySchema,
             Struct valueStruct,
-            Schema valueSchema
+            Schema valueSchema,
+            Struct beforeValueStruct
     ) {
 
         String topicName = logicalDbName + "." + oracleSchemaName.toUpperCase() + "." + oracleTableName.toUpperCase();
@@ -48,6 +49,9 @@ public abstract class AbstractDebeziumIntegrationTest extends AbstractIntegratio
         source.put("scn", scn);
 
         Struct dbValue = new Struct(dbValueSchema);
+        if(beforeValueStruct != null) {
+            dbValue.put("before", beforeValueStruct);
+        }
         dbValue.put("after", valueStruct);
         dbValue.put("source", source);
         dbValue.put("op", op);

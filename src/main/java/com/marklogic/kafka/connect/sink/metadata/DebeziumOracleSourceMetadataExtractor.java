@@ -32,7 +32,7 @@ public class DebeziumOracleSourceMetadataExtractor extends DefaultSourceMetadata
             }
 
             Object after = value.get("after");
-            if(before != null) {
+            if(after != null) {
                 Schema afterSchema = valueSchema.field("after").schema();
                 meta.put(ID, idFromSchemaAndValue(afterSchema, after));
             }

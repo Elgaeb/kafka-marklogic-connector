@@ -1,6 +1,7 @@
 package com.marklogic.kafka.connect.sink.recordconverter;
 
 import com.marklogic.client.document.DocumentWriteOperation;
+import com.marklogic.kafka.connect.sink.metadata.DefaultSourceMetadataExtractor;
 import com.marklogic.kafka.connect.sink.util.CaseConverter;
 import com.marklogic.client.ext.util.DefaultDocumentPermissionsParser;
 import com.marklogic.client.impl.DocumentWriteOperationImpl;
@@ -9,6 +10,7 @@ import com.marklogic.client.io.Format;
 import com.marklogic.client.io.marker.AbstractWriteHandle;
 import com.marklogic.kafka.connect.sink.StructWriteHandle;
 import com.marklogic.kafka.connect.sink.UpdateOperation;
+import com.marklogic.kafka.connect.sink.util.HashMapBuilder;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
@@ -151,6 +153,7 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
                     case "r": // read
                     case "u": // update
                         DocumentMetadataHandle documentMetadataHandle = toDocumentMetadata(sinkRecord, sourceMetadata);
+                        Set<String> deletes = new HashSet<>();
 
                         if (this.getPermissions() != null) {
                             new DefaultDocumentPermissionsParser().parsePermissions(this.getPermissions(), documentMetadataHandle.getPermissions());
@@ -160,12 +163,29 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
                             documentMetadataHandle.getCollections().addAll(this.getCollections());
                         }
 
+                        if(sourceMetadata.get(DefaultSourceMetadataExtractor.PREVIOUS_ID) != null) {
+                            String previousId = sourceMetadata.get(DefaultSourceMetadataExtractor.PREVIOUS_ID).toString();
+                            Map<String, Object> previousMetadata = new HashMapBuilder<String, Object>()
+                                    .with(sourceMetadata)
+                                    .with(DefaultSourceMetadataExtractor.ID, previousId);
+                            String previousUri = this.uriFormatter.uri(previousMetadata);
+                            deletes.add(previousUri);
+                        }
+
                         AbstractWriteHandle writeHandle = toWriteHandle(sinkRecord, sourceMetadata);
                         DocumentWriteOperation writeOperation = new DocumentWriteOperationImpl(DocumentWriteOperation.OperationType.DOCUMENT_WRITE, uri, documentMetadataHandle, writeHandle);
                         List<DocumentWriteOperation> writeOperations = Collections.singletonList(writeOperation);
 
-                        return UpdateOperation.of(writeOperations);
+                        return UpdateOperation.of(deletes, writeOperations);
                     case "d": // delete
+                        if(sourceMetadata.get(DefaultSourceMetadataExtractor.PREVIOUS_ID) != null) {
+                            // this was an update to a non-PK table, uri will be gibberish
+                            String previousId = sourceMetadata.get(DefaultSourceMetadataExtractor.PREVIOUS_ID).toString();
+                            Map<String, Object> previousMetadata = new HashMapBuilder<String, Object>()
+                                    .with(sourceMetadata)
+                                    .with(DefaultSourceMetadataExtractor.ID, previousId);
+                            uri = this.uriFormatter.uri(previousMetadata);
+                        }
                         return UpdateOperation.of(Collections.singleton(uri));
                     default:
                         throw new IllegalArgumentException("op must be one of [ 'c', 'r', 'u', 'd' ]");

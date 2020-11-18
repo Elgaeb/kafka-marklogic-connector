@@ -1,7 +1,6 @@
-package com.marklogic.kafka.connect.integration.debezium.confluent.oracle;
+package com.marklogic.kafka.connect.integration.confluent.oracle;
 
 import com.marklogic.kafka.connect.integration.AbstractIntegrationTest;
-import com.marklogic.kafka.connect.sink.MarkLogicSinkConfig;
 import com.marklogic.kafka.connect.sink.MarkLogicSinkTask;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
@@ -12,7 +11,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
