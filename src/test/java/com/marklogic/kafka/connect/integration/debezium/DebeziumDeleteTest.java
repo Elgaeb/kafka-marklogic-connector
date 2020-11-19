@@ -39,7 +39,7 @@ public class DebeziumDeleteTest extends AbstractDebeziumIntegrationTest {
 
         Schema valueSchema = SchemaBuilder.struct()
                 .optional()
-                .name(LOGICAL_DB_NAME + "." + ORACLE_SCHEMA_NAME.toUpperCase() + "." + ORACLE_TABLE_NAME.toUpperCase())
+                .name(LOGICAL_DB_NAME + "." + ORACLE_SCHEMA_NAME.toUpperCase() + "." + ORACLE_TABLE_NAME.toUpperCase() + ".Value")
                 .field("ID_ONE", SchemaBuilder.int32().build())
                 .field("ID_TWO", SchemaBuilder.int32().build())
                 .field("VALUE_AS_STRING", SchemaBuilder.string().build())
@@ -80,7 +80,7 @@ public class DebeziumDeleteTest extends AbstractDebeziumIntegrationTest {
 
         Schema valueSchema = SchemaBuilder.struct()
                 .optional()
-                .name(LOGICAL_DB_NAME + "." + ORACLE_SCHEMA_NAME.toUpperCase() + "." + ORACLE_TABLE_NAME.toUpperCase())
+                .name(LOGICAL_DB_NAME + "." + ORACLE_SCHEMA_NAME.toUpperCase() + "." + ORACLE_TABLE_NAME.toUpperCase() + ".Value")
                 .field("VALUE_AS_STRING", SchemaBuilder.string().build())
                 .build();
         Struct value = new Struct(valueSchema);

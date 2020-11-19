@@ -41,7 +41,7 @@ public class DebeziumOutOfOrderUpdateTest extends AbstractDebeziumIntegrationTes
         key.put("ID_TWO", 321);
 
         Schema valueSchema = SchemaBuilder.struct()
-                .name(LOGICAL_DB_NAME + "." + ORACLE_SCHEMA_NAME.toUpperCase() + "." + ORACLE_TABLE_NAME.toUpperCase())
+                .name(LOGICAL_DB_NAME + "." + ORACLE_SCHEMA_NAME.toUpperCase() + "." + ORACLE_TABLE_NAME.toUpperCase() + ".Value")
                 .field("ID_ONE", SchemaBuilder.int32().build())
                 .field("ID_TWO", SchemaBuilder.int32().build())
                 .field("VALUE_ONE", Schema.OPTIONAL_STRING_SCHEMA)
@@ -54,7 +54,7 @@ public class DebeziumOutOfOrderUpdateTest extends AbstractDebeziumIntegrationTes
         value.put("VALUE_ONE", "updated_one");
         value.put("VALUE_TWO", "updated_two");
         value.put("VALUE_THREE", "updated_three");
-        SinkRecord record = createDebeziumMessage(LOGICAL_DB_NAME, ORACLE_SCHEMA_NAME, ORACLE_TABLE_NAME, 101L, 1100L, "u", key, keySchema, value, valueSchema, null);
+        SinkRecord record = createDebeziumMessage(LOGICAL_DB_NAME, ORACLE_SCHEMA_NAME, ORACLE_TABLE_NAME, 1100L, 1100L, "u", key, keySchema, value, valueSchema, null);
         task.put(Collections.singleton(record));
         task.flushAndWait(Collections.emptyMap());
 
@@ -71,7 +71,7 @@ public class DebeziumOutOfOrderUpdateTest extends AbstractDebeziumIntegrationTes
         value.put("VALUE_ONE", "one");
         value.put("VALUE_TWO", "two");
         value.put("VALUE_THREE", "three");
-        record = createDebeziumMessage(LOGICAL_DB_NAME, ORACLE_SCHEMA_NAME, ORACLE_TABLE_NAME, 100L, 1100L, "r", key, keySchema, value, valueSchema, null);
+        record = createDebeziumMessage(LOGICAL_DB_NAME, ORACLE_SCHEMA_NAME, ORACLE_TABLE_NAME, 1000L, 1000L, "r", key, keySchema, value, valueSchema, null);
         task.put(Collections.singleton(record));
         task.flushAndWait(Collections.emptyMap());
 

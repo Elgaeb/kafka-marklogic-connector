@@ -1,5 +1,6 @@
 package com.marklogic.kafka.connect.sink.metadata;
 
+import com.marklogic.kafka.connect.sink.util.HashMapBuilder;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -10,10 +11,8 @@ import java.util.regex.Pattern;
 
 public class DebeziumOracleSourceMetadataExtractor extends DefaultSourceMetadataExtractor {
 
-
     public DebeziumOracleSourceMetadataExtractor(Map<String, Object> kafkaConfig) {
     }
-
 
     protected Map<String, Object> extractIdFromValue(SinkRecord sinkRecord) {
         Struct value = (Struct)sinkRecord.value();
@@ -54,42 +53,17 @@ public class DebeziumOracleSourceMetadataExtractor extends DefaultSourceMetadata
         }
     }
 
-    protected static final Pattern SCHEMA_NAME_PATTERN = Pattern.compile("^(.*)[.]([^.]+)[.]([^.]+)$");
+    protected static final Pattern SCHEMA_NAME_PATTERN = Pattern.compile("^(.*)[.]([^.]+)[.]([^.]+)[.]Value$");
 
     protected Map<String, Object> extractSourceMetadata(SinkRecord sinkRecord) {
-        Map<String, Object> meta = new HashMap<>();
-
-        // database, schema, table, scn?
-
-        Schema valueSchema = sinkRecord.valueSchema();
-        Schema afterSchema = valueSchema.field("after").schema();
-        if(afterSchema != null) {
-            meta.putAll(extractValuesFromSchemaName(afterSchema));
-        } else {
-            Schema beforeSchema = valueSchema.field("before").schema();
-            if(beforeSchema != null) {
-                meta.putAll(extractValuesFromSchemaName(beforeSchema));
-            }
-        }
-
         Struct value = (Struct)sinkRecord.value();
         Struct source = value.getStruct("source");
 
-        Long scn = source.getInt64("scn");
-
-        return meta;
-    }
-
-    protected Map<String, Object> extractValuesFromSchemaName(Schema schema) {
-        Map<String, Object> meta = new HashMap<>();
-        String name = schema.name(); // e.g. server1.DEBEZIUM.CUSTOMERS.Value
-        Matcher matcher = SCHEMA_NAME_PATTERN.matcher(name);
-        if(matcher.matches()) {
-            meta.put(DATABASE, matcher.group(1));
-            meta.put(SCHEMA, matcher.group(2));
-            meta.put(TABLE, matcher.group(3));
-        }
-        return meta;
+        return new HashMapBuilder<String, Object>()
+                .with("name", source.getString("name"))
+                .with("database", source.getString("db"))
+                .with("schema", source.getString("schema").toUpperCase())
+                .with("table", source.getString("table").toUpperCase());
     }
 
     public Map<String, Object> extract(SinkRecord sinkRecord) {

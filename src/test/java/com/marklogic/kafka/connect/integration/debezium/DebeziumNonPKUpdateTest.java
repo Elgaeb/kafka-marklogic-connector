@@ -31,7 +31,7 @@ public class DebeziumNonPKUpdateTest extends AbstractDebeziumIntegrationTest {
         task.start(config);
 
         Schema valueSchema = SchemaBuilder.struct()
-                .name(LOGICAL_DB_NAME + "." + ORACLE_SCHEMA_NAME.toUpperCase() + "." + ORACLE_TABLE_NAME.toUpperCase())
+                .name(LOGICAL_DB_NAME + "." + ORACLE_SCHEMA_NAME.toUpperCase() + "." + ORACLE_TABLE_NAME.toUpperCase() + ".Value")
                 .field("VALUE_AS_STRING", SchemaBuilder.string().build())
                 .build();
         Struct value = new Struct(valueSchema);

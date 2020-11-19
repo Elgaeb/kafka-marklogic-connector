@@ -81,10 +81,9 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
         Long timestamp = source.getInt64("ts_ms");
         Long scn = source.getInt64("scn");
 
-        String[] schemaNameParts = valueSchema.name().split("[.]");
-        String oracleDatabaseName = schemaNameParts[0];
-        String oraclSchemaName = schemaNameParts[1].toUpperCase();
-        String oracleTableName = schemaNameParts[2].toUpperCase();
+        String oracleDatabaseName = source.getString("db");
+        String oraclSchemaName = source.getString("schema").toUpperCase();
+        String oracleTableName = source.getString("table").toUpperCase();
 
         final Schema headersSchema = SchemaBuilder.struct()
                 .field("topic", Schema.OPTIONAL_STRING_SCHEMA)

@@ -11,6 +11,9 @@ public abstract class AbstractDebeziumIntegrationTest extends AbstractIntegratio
             .name("io.debezium.connector.oracle.Source")
             .field("version", SchemaBuilder.OPTIONAL_STRING_SCHEMA)
             .field("name", SchemaBuilder.STRING_SCHEMA)
+            .field("db", SchemaBuilder.STRING_SCHEMA)
+            .field("schema", SchemaBuilder.STRING_SCHEMA)
+            .field("table", SchemaBuilder.STRING_SCHEMA)
             .field("ts_ms", SchemaBuilder.OPTIONAL_INT64_SCHEMA)
             .field("txId", SchemaBuilder.OPTIONAL_STRING_SCHEMA)
             .field("scn", SchemaBuilder.OPTIONAL_INT64_SCHEMA)
@@ -45,6 +48,9 @@ public abstract class AbstractDebeziumIntegrationTest extends AbstractIntegratio
 
         Struct source = new Struct(SOURCE_SCHEMA);
         source.put("name", logicalDbName);
+        source.put("db", logicalDbName);
+        source.put("schema", oracleSchemaName);
+        source.put("table", oracleTableName);
         source.put("ts_ms", timestamp);
         source.put("scn", scn);
 
