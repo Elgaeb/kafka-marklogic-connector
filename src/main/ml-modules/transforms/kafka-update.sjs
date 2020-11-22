@@ -66,5 +66,6 @@ exports.transform = function transform(context, params, content) {
         }
     });
 
+    baseHeaders.ingestedOn = fn.currentDateTime().toString();
     return baseDocument;
 }

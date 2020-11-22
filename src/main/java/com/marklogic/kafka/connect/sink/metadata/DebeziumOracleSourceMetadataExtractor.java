@@ -1,5 +1,6 @@
 package com.marklogic.kafka.connect.sink.metadata;
 
+import com.marklogic.kafka.connect.sink.util.ConfluentUtil;
 import com.marklogic.kafka.connect.sink.util.HashMapBuilder;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
@@ -27,13 +28,13 @@ public class DebeziumOracleSourceMetadataExtractor extends DefaultSourceMetadata
             Object before = value.get("before");
             if(before != null) {
                 Schema beforeSchema = valueSchema.field("before").schema();
-                meta.put(PREVIOUS_ID, idFromSchemaAndValue(beforeSchema, before));
+                meta.put(PREVIOUS_ID, ConfluentUtil.idFromSchemaAndValue(beforeSchema, before));
             }
 
             Object after = value.get("after");
             if(after != null) {
                 Schema afterSchema = valueSchema.field("after").schema();
-                meta.put(ID, idFromSchemaAndValue(afterSchema, after));
+                meta.put(ID, ConfluentUtil.idFromSchemaAndValue(afterSchema, after));
             }
 
             return meta;
@@ -46,7 +47,7 @@ public class DebeziumOracleSourceMetadataExtractor extends DefaultSourceMetadata
 
         if(key != null) {
             Map<String, Object> sourceMetadata = new HashMap<>();
-            sourceMetadata.put(ID, idFromSchemaAndValue(keySchema, key));
+            sourceMetadata.put(ID, ConfluentUtil.idFromSchemaAndValue(keySchema, key));
             return sourceMetadata;
         } else {
             return extractIdFromValue(sinkRecord);
