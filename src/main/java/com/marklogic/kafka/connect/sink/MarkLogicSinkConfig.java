@@ -1,7 +1,9 @@
 package com.marklogic.kafka.connect.sink;
 
+import com.marklogic.kafka.connect.sink.metadata.ConfluentOracleSourceMetadataExtractor;
 import com.marklogic.kafka.connect.sink.metadata.DebeziumOracleSourceMetadataExtractor;
 import com.marklogic.kafka.connect.sink.metadata.UUIDSourceMetadataExtractor;
+import com.marklogic.kafka.connect.sink.recordconverter.ConfluentOracleJSONSinkRecordConverter;
 import com.marklogic.kafka.connect.sink.recordconverter.ConnectSinkRecordConverter;
 import com.marklogic.kafka.connect.sink.recordconverter.DHFEnvelopeSinkRecordConverter;
 import com.marklogic.kafka.connect.sink.recordconverter.DebeziumOracleSinkRecordConverter;
@@ -71,8 +73,8 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 	private static final AlwaysVisibleRecommender CONNECTION_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("DIRECT", "GATEWAY");
 	private static final AlwaysVisibleRecommender SECURITY_CONTEXT_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("digest", "basic", "kerberos", "certificate", "none");
 	private static final AlwaysVisibleRecommender SSL_CONNECTION_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("none", "simple", "default", "custom");
-	private static final AlwaysVisibleRecommender SOURCE_METADATA_EXTRACTOR_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(DebeziumOracleSourceMetadataExtractor.class, UUIDSourceMetadataExtractor.class);
-	private static final AlwaysVisibleRecommender SINK_RECORD_CONVERTER_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(DHFEnvelopeSinkRecordConverter.class, ConnectSinkRecordConverter.class, DebeziumOracleSinkRecordConverter.class);
+	private static final AlwaysVisibleRecommender SOURCE_METADATA_EXTRACTOR_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(DebeziumOracleSourceMetadataExtractor.class, UUIDSourceMetadataExtractor.class, ConfluentOracleSourceMetadataExtractor.class);
+	private static final AlwaysVisibleRecommender SINK_RECORD_CONVERTER_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(DHFEnvelopeSinkRecordConverter.class, ConnectSinkRecordConverter.class, DebeziumOracleSinkRecordConverter.class, DHFEnvelopeSinkRecordConverter.class, ConfluentOracleJSONSinkRecordConverter.class);
 	private static final AlwaysVisibleRecommender STRING_CASE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("as-is", "lower", "upper", "camel");
 
 	public static ConfigDef CONFIG_DEF = new ConfigDef()
@@ -127,11 +129,8 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 		super(CONFIG_DEF, originals, false);
 	}
 
-	/*
-	 * TODO: Copy values that don't appear in the ConfigDef
-	 */
 	public static Map<String, Object> hydrate(Map<String, ? extends Object> original) {
-		Map<String, Object> hydrated = new HashMap<>();
+		Map<String, Object> hydrated = new HashMap<>(original);
 
 		CONFIG_DEF.configKeys().forEach((name, configKey) -> {
 			Object inputValue = original.get(configKey.name);

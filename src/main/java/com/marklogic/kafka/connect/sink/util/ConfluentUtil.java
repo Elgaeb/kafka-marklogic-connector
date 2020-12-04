@@ -24,10 +24,10 @@ public class ConfluentUtil {
     public static Map<String, Object> extractValuesFromTableName(String name) {
         Map<String, Object> meta = new HashMap<>();
         Matcher matcher = SCHEMA_NAME_PATTERN.matcher(name);
-        if(matcher.matches()) {
+        if (matcher.matches()) {
             meta.put(DefaultSourceMetadataExtractor.DATABASE, matcher.group(1));
-            meta.put(DefaultSourceMetadataExtractor.SCHEMA, matcher.group(2));
-            meta.put(DefaultSourceMetadataExtractor.TABLE, matcher.group(3));
+            meta.put(DefaultSourceMetadataExtractor.SCHEMA, matcher.group(2).toUpperCase());
+            meta.put(DefaultSourceMetadataExtractor.TABLE, matcher.group(3).toUpperCase());
         }
         return meta;
     }
@@ -37,7 +37,7 @@ public class ConfluentUtil {
         Object key = sinkRecord.key();
         Map<String, Object> sourceMetadata = new HashMap<>();
 
-        if(key != null) {
+        if (key != null) {
             sourceMetadata.put(SourceMetadataExtractor.ID, idFromSchemaAndValue(keySchema, key));
         } else {
             sourceMetadata.put(SourceMetadataExtractor.ID, UUID.randomUUID().toString());
@@ -47,26 +47,41 @@ public class ConfluentUtil {
     }
 
     public static String idFromSchemaAndValue(Schema valueSchema, Object value) {
-        try {
-            MessageDigest messageDigest = MessageDigest.getInstance("SHA-1");
-
+            List<String> values = new ArrayList<>();
             if (valueSchema.type().equals(Schema.Type.STRUCT)) {
                 Struct valueStruct = (Struct) value;
 
-                List<String> encodedValues = new ArrayList<>();
                 for (Field field : valueSchema.fields()) {
                     String name = field.name();
-                    Object valueObj = valueStruct.get(name);
-                    // use a reserved character to cnostruct a substitute for a null value.
-                    String idPart = valueObj == null ? "?null?" : URLEncoder.encode(valueObj.toString(), "UTF-8");
-                    encodedValues.add(idPart);
+                    Object valueObj = valueStruct.get(field.name());
+                    values.add(valueObj == null ? null : valueObj.toString());
                 }
-
-                String encodedValue = String.join("/", encodedValues);
-                messageDigest.update(StandardCharsets.UTF_8.encode(encodedValue));
+            } else if (value != null) {
+                values.add(value.toString());
             } else {
-                messageDigest.update(StandardCharsets.UTF_8.encode(URLEncoder.encode(value.toString(), "UTF-8")));
+                values.add(UUID.randomUUID().toString());
             }
+
+            return hash(values);
+    }
+
+    public static String hash(Collection<String> values) {
+        Object valuesArray[] = values.toArray(new String[values.size()]);
+        return hash(valuesArray);
+    }
+
+    public static String hash(Object... values) {
+        try {
+            MessageDigest messageDigest = MessageDigest.getInstance("SHA-1");
+
+            List<String> encodedValues = new ArrayList<>();
+            for (Object valueObj : values) {
+                String idPart = valueObj == null ? "?null?" : URLEncoder.encode(valueObj.toString(), "UTF-8");
+                encodedValues.add(idPart);
+            }
+
+            String encodedValue = String.join("/", encodedValues);
+            messageDigest.update(StandardCharsets.UTF_8.encode(encodedValue));
 
             return String.format("%032x", new BigInteger(1, messageDigest.digest()));
         } catch (NoSuchAlgorithmException | UnsupportedEncodingException ex) {
@@ -74,5 +89,7 @@ public class ConfluentUtil {
         }
     }
 
-
+    public static BigInteger bigIntegerFromBase64(String base64) {
+        return base64 == null ? null : new BigInteger(java.util.Base64.getDecoder().decode(base64));
+    }
 }

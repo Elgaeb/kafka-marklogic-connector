@@ -13,6 +13,7 @@ import com.marklogic.client.io.marker.AbstractWriteHandle;
 import com.marklogic.kafka.connect.sink.MarkLogicSinkConfig;
 import com.marklogic.kafka.connect.sink.StructWriteHandle;
 import com.marklogic.kafka.connect.sink.UpdateOperation;
+import com.marklogic.kafka.connect.sink.metadata.DefaultSourceMetadataExtractor;
 import com.marklogic.kafka.connect.sink.metadata.SourceMetadataExtractor;
 import com.marklogic.kafka.connect.sink.uri.URIFormatter;
 import com.marklogic.kafka.connect.sink.util.CaseConverter;
@@ -20,6 +21,7 @@ import com.marklogic.kafka.connect.sink.util.ConfluentUtil;
 import com.marklogic.kafka.connect.sink.util.HashMapBuilder;
 import com.marklogic.kafka.connect.sink.util.UncheckedIOException;
 import org.apache.commons.text.StringSubstitutor;
+import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -33,8 +35,15 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.io.UnsupportedEncodingException;
+import java.math.BigInteger;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Handles converting a SinkRecord into a DocumentWriteOperation via the properties in the given config map.
@@ -64,9 +73,12 @@ public class ConfluentOracleJSONSinkRecordConverter implements SinkRecordConvert
     protected final CaseConverter collectionCaseConverter;
     protected final URIFormatter uriFormatter;
 
-    protected final ObjectMapper mapper = new JsonMapper();
+    protected final JsonMapper mapper = new JsonMapper();
+
+    protected final Map<String, SortedSet<String>> keyOverride;
 
     public ConfluentOracleJSONSinkRecordConverter(Map<String, Object> kafkaConfig) {
+        this.columnCaseConverter = CaseConverter.ofType("camel");
         this.collectionFormat = (String) kafkaConfig.get(MarkLogicSinkConfig.CSRC_COLLECTION_FORMATSTRING);
 
         this.collections = (List<String>) kafkaConfig.get(MarkLogicSinkConfig.DOCUMENT_COLLECTIONS);
@@ -89,9 +101,49 @@ public class ConfluentOracleJSONSinkRecordConverter implements SinkRecordConvert
         config.put(JsonConverterConfig.SCHEMAS_ENABLE_CONFIG, false);
         config.put(JsonConverterConfig.DECIMAL_FORMAT_CONFIG, DecimalFormat.NUMERIC.name());
         this.converter.configure(config, false);
+
+        keyOverride = new HashMap<>();
+        kafkaConfig.keySet().forEach(key -> {
+            if(key.startsWith("marklogic.confluent.oracle.keys.")) {
+                String keyParts[] = key.split("[.]");
+                if(keyParts.length == 6) {
+                    String schema = keyParts[4].toUpperCase();
+                    String table = keyParts[5].toUpperCase();
+                    String columns[] = ((String) kafkaConfig.get(key)).split("[,]");
+                    SortedSet<String> columnSet = new TreeSet<>();
+                    Arrays.stream(columns).map(this.columnCaseConverter::convert).forEach(columnSet::add);
+                    keyOverride.put(schema + "." + table, columnSet);
+                }
+            }
+        });
     }
 
-    protected static final Pattern SCHEMA_NAME_PATTERN = Pattern.compile("^(.*)[.]([^.]+)[.]([^.]+)$");
+    protected Map<String, ? extends Object> extractKeyFromData(SortedSet<String> keyColumns, Map<String, Object> data ) {
+        try {
+            List<String> encodedValues = new ArrayList<>();
+            MessageDigest messageDigest = MessageDigest.getInstance("SHA-1");
+            keyColumns.forEach(column -> {
+                Object valueObj = data.get(column);
+                try {
+                    String idPart = valueObj == null ? "?null?" : URLEncoder.encode(valueObj.toString(), "UTF-8");
+                    encodedValues.add(idPart);
+                } catch (UnsupportedEncodingException ex) {
+                    // Java is required to support UTF-8 in all implementations
+                    throw new RuntimeException(ex);
+                }
+            });
+            String encodedValue = String.join("/", encodedValues);
+            messageDigest.update(StandardCharsets.UTF_8.encode(encodedValue));
+            return new HashMapBuilder<String, String>()
+                .with(SourceMetadataExtractor.ID, String.format("%032x", new BigInteger(1, messageDigest.digest())))
+                .with("plaintextId", encodedValue);
+        }  catch (NoSuchAlgorithmException ex) {
+            // Java is required to support SHA-1 in all implementations
+            throw new RuntimeException(ex);
+        }
+    }
+
+    protected CaseConverter columnCaseConverter;
 
     @Override
     public UpdateOperation convert(SinkRecord sinkRecord) {
@@ -105,26 +157,83 @@ public class ConfluentOracleJSONSinkRecordConverter implements SinkRecordConvert
             throw new NullPointerException("'record' must have a value.");
         }
 
-        String valueJson = value.toString();
+        if (! (value instanceof Map) ) {
+            throw new IllegalArgumentException("value should be a 'Map'");
+        }
+
+        Map<String, Object> valueMap = (Map<String, Object>) value;
 
         try {
-            JsonNode valueNode = mapper.readTree(new StringReader(valueJson));
-
-            if(valueNode.has("payload")) {
-                valueNode = valueNode.get("payload");
+            if(valueMap.containsKey("payload")) {
+                valueMap = (Map<String, Object>) valueMap.get("payload");
             }
 
             HashMapBuilder<String, Object> sourceMetadata = new HashMapBuilder<>();
-            Optional.ofNullable(valueNode.get("scn")).ifPresent(scn -> sourceMetadata.with("scn", Long.parseUnsignedLong(scn.asText())));
-            Optional.ofNullable(valueNode.get("op_type")).ifPresent(opType -> sourceMetadata.with("operation", opType.asText()));
-            Optional.ofNullable(valueNode.get("table")).ifPresent(fullTableName -> {
-                sourceMetadata.putAll(ConfluentUtil.extractValuesFromTableName(fullTableName.asText()));
+            Optional.ofNullable(valueMap.get("scn")).ifPresent(scn -> sourceMetadata.with("scn", Long.parseUnsignedLong(scn.toString())));
+            Optional.ofNullable(valueMap.get("op_type")).ifPresent(opType -> sourceMetadata.with("operation", opType));
+            Optional.ofNullable(valueMap.get("table")).ifPresent(fullTableName -> {
+                sourceMetadata.putAll(ConfluentUtil.extractValuesFromTableName(fullTableName.toString()));
             });
 
-            sourceMetadata.putAll(ConfluentUtil.extractIdFromKey(sinkRecord));
+            final SortedSet<String> keyColumns = new TreeSet<>();
+            HashMapBuilder<String, Object> convertedData = new HashMapBuilder<>();
+            Optional.ofNullable(valueMap.get("data")).ifPresent(rawData -> {
+                Map<String, Map<String, Object>> data = (Map) rawData;
+                data.entrySet().forEach(dataEntry -> {
+                    String columnName = this.columnCaseConverter.convert(dataEntry.getKey());
+
+                    Map<String, Object> dataMap = dataEntry.getValue();
+                    String type = (String) dataMap.get("type");
+
+                    List<String> flags = Optional
+                            .ofNullable((List<String>) dataMap.get("flags"))
+                            .orElse(Collections.EMPTY_LIST);
+
+                    flags = flags.stream()
+                            .map(flag -> flag.toLowerCase())
+                            .collect(Collectors.toList());
+
+                    if(flags.contains("pkey")) {
+                        keyColumns.add(columnName);
+                    }
+
+                    Object rawValue = dataMap.get("value");
+
+                    switch(type) {
+                        case "int8":
+                        case "int16":
+                        case "int32":
+                        case "int64":
+                        case "float32":
+                        case "float64":
+                        case "boolean":
+                        case "string":
+                            convertedData.put(columnName, rawValue);
+                            break;
+                        case "bytes":
+//                            convertedData.put(columnName, bigIntegerFromBase64((String)rawValue));
+                            convertedData.put(columnName, rawValue);
+                            break;
+                        case "array":
+                        case "map":
+                        case "struct":
+                        default:
+                            // these should not occur in the oracle cdc source
+                            break;
+                    }
+                });
+            });
+
+            String schema = (String) sourceMetadata.get(DefaultSourceMetadataExtractor.SCHEMA);
+            String table = (String) sourceMetadata.get(DefaultSourceMetadataExtractor.TABLE);
+
+            sourceMetadata.putAll(extractKeyFromData(
+                    Optional.ofNullable(keyOverride.get(schema + "." + table)).orElse(keyColumns),
+                    convertedData
+            ));
 
             String uri = this.uriFormatter.uri(sourceMetadata);
-            AbstractWriteHandle writeHandle = toWriteHandle(valueNode, sinkRecord, sourceMetadata);
+            AbstractWriteHandle writeHandle = toWriteHandle(convertedData, sinkRecord, sourceMetadata);
             DocumentMetadataHandle documentMetadataHandle = toDocumentMetadata(sinkRecord, sourceMetadata);
 
             if (this.permissions != null) {
@@ -149,34 +258,26 @@ public class ConfluentOracleJSONSinkRecordConverter implements SinkRecordConvert
         return metadata;
     }
 
-    protected AbstractWriteHandle toWriteHandle(JsonNode valueNode, SinkRecord record, Map<String, Object> sourceMetadata) throws IOException {
-        Map<String, Object> values = new HashMap<>();
-        valueNode.fields().forEachRemaining(entry -> {
-            String name = entry.getKey();
-            switch(name) {
-                case "scn":
-                case "op_type":
-                case "table":
-                    // discard these...
-                    break;
-                default:
-                    values.put(name, entry.getValue());
-                    break;
-            }
-        });
-
-
+    protected AbstractWriteHandle toWriteHandle(Map<String, Object> valueMap, SinkRecord record, Map<String, Object> sourceMetadata) throws IOException {
         Map<String, Object> headers = new HashMap<>();
         headers.put("topic", record.topic());
         headers.put("timestamp", record.timestamp());
         headers.put("scn", sourceMetadata.get("scn"));
         headers.put("database", sourceMetadata.get("database"));
-        headers.put("schema", String.valueOf(sourceMetadata.get("schema")).toUpperCase());
-        headers.put("table", String.valueOf(sourceMetadata.get("table")).toUpperCase());
+
+        String schema = String.valueOf(sourceMetadata.get("schema")).toUpperCase();
+        String table = String.valueOf(sourceMetadata.get("table")).toUpperCase();
+
+        headers.put("schema", schema);
+        headers.put("table", table);
 
         Map<String, Object> envelope = new HashMap<>();
         envelope.put("headers", headers);
-        envelope.put("instance", values);
+        envelope.put("instance", new HashMapBuilder<String, Object>().with(
+                schema, new HashMapBuilder<String, Object>().with(
+                        table, valueMap
+                )
+        ));
 
         Map<String, Object> root = new HashMap<>();
         root.put("envelope", envelope);
