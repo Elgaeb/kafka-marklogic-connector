@@ -145,12 +145,12 @@ public class MarkLogicSinkTask extends SinkTask {
 		logger.info("Stopped");
 	}
 
-	protected void addUpdate(DocumentWriteOperation writeOperation) {
+	protected void addUpdate(DocumentWriteOperation writeOperation, Integer partition, long offset) {
 		String uri = writeOperation.getUri();
 
 		if(this.currentBatch.contains(uri)) {
 			// updating a document that's already in this batch. Need to flush.
-			logger.info("Detected uri {} in existing batch. Flushing.", uri);
+			logger.info("Detected uri {} in existing batch. Flushing. Partition: {}, Offset: {}", uri, partition, offset);
 			writeBatcher.flushAsync();
 			this.currentBatch.clear();
 		}
@@ -204,7 +204,7 @@ public class MarkLogicSinkTask extends SinkTask {
 				if (record.value() != null) {
 					UpdateOperation updateOperation = sinkRecordConverter.convert(record);
 					this.addDeletes(updateOperation.getDeletes());
-					updateOperation.getWrites().forEach(this::addUpdate);
+					updateOperation.getWrites().forEach(writeOperation -> this.addUpdate(writeOperation, updateOperation.getPartition(), updateOperation.getOffset()));
 				} else {
 					logger.warn("Skipping record with null value - possibly a 'tombstone' message.");
 				}

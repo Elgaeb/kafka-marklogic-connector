@@ -175,6 +175,9 @@ public class ConfluentOracleJSONSinkRecordConverter implements SinkRecordConvert
                 sourceMetadata.putAll(ConfluentUtil.extractValuesFromTableName(fullTableName.toString()));
             });
 
+            sourceMetadata.put("offset", sinkRecord.kafkaOffset());
+            sourceMetadata.put("partition", sinkRecord.kafkaPartition());
+
             final SortedSet<String> keyColumns = new TreeSet<>();
             HashMapBuilder<String, Object> convertedData = new HashMapBuilder<>();
             Optional.ofNullable(valueMap.get("data")).ifPresent(rawData -> {
@@ -183,43 +186,51 @@ public class ConfluentOracleJSONSinkRecordConverter implements SinkRecordConvert
                     String columnName = this.columnCaseConverter.convert(dataEntry.getKey());
 
                     Map<String, Object> dataMap = dataEntry.getValue();
-                    String type = (String) dataMap.get("type");
+                    if(dataMap != null) {
+                        String type = (String) dataMap.get("type");
 
-                    List<String> flags = Optional
-                            .ofNullable((List<String>) dataMap.get("flags"))
-                            .orElse(Collections.EMPTY_LIST);
+                        List<String> flags = Optional
+                                .ofNullable((List<String>) dataMap.get("flags"))
+                                .orElse(Collections.EMPTY_LIST);
 
-                    flags = flags.stream()
-                            .map(flag -> flag.toLowerCase())
-                            .collect(Collectors.toList());
+                        flags = flags.stream()
+                                .map(flag -> flag.toLowerCase())
+                                .collect(Collectors.toList());
 
-                    if(flags.contains("pkey")) {
-                        keyColumns.add(columnName);
-                    }
+                        if(flags.contains("pkey")) {
+                            keyColumns.add(columnName);
+                        }
 
-                    Object rawValue = dataMap.get("value");
+                        Object rawValue = dataMap.get("value");
 
-                    switch(type) {
-                        case "int8":
-                        case "int16":
-                        case "int32":
-                        case "int64":
-                        case "float32":
-                        case "float64":
-                        case "boolean":
-                        case "string":
-                            convertedData.put(columnName, rawValue);
-                            break;
-                        case "bytes":
+                        switch(type) {
+                            case "org.apache.kafka.connect.data.Timestamp":
+                                convertedData.put(columnName, rawValue);
+                                break;
+                            case "org.apache.kafka.connect.data.Decimal":
+                            case "int8":
+                            case "int16":
+                            case "int32":
+                            case "int64":
+                            case "float32":
+                            case "float64":
+                            case "boolean":
+                            case "string":
+                                convertedData.put(columnName, rawValue);
+                                break;
+                            case "bytes":
 //                            convertedData.put(columnName, bigIntegerFromBase64((String)rawValue));
-                            convertedData.put(columnName, rawValue);
-                            break;
-                        case "array":
-                        case "map":
-                        case "struct":
-                        default:
-                            // these should not occur in the oracle cdc source
-                            break;
+                                convertedData.put(columnName, rawValue);
+                                break;
+                            case "array":
+                            case "map":
+                            case "struct":
+                                // these should not occur in the oracle cdc source
+                                break;
+                            default:
+                                convertedData.put(columnName, rawValue);
+                                break;
+                        }
                     }
                 });
             });
@@ -244,7 +255,12 @@ public class ConfluentOracleJSONSinkRecordConverter implements SinkRecordConvert
                 documentMetadataHandle.getCollections().addAll(this.collections);
             }
 
-            return UpdateOperation.of(Collections.singletonList(new DocumentWriteOperationImpl(DocumentWriteOperation.OperationType.DOCUMENT_WRITE, uri, documentMetadataHandle, writeHandle)));
+            return UpdateOperation.of(
+                    Collections.singletonList(new DocumentWriteOperationImpl(DocumentWriteOperation.OperationType.DOCUMENT_WRITE, uri, documentMetadataHandle, writeHandle)),
+                    sinkRecord.kafkaPartition(),
+                    sinkRecord.kafkaOffset()
+            );
+
         } catch(IOException ex) {
             throw new UncheckedIOException(ex);
         }
@@ -264,6 +280,8 @@ public class ConfluentOracleJSONSinkRecordConverter implements SinkRecordConvert
         headers.put("timestamp", record.timestamp());
         headers.put("scn", sourceMetadata.get("scn"));
         headers.put("database", sourceMetadata.get("database"));
+        headers.put("offset", sourceMetadata.get("offset"));
+        headers.put("partition", sourceMetadata.get("partition"));
 
         String schema = String.valueOf(sourceMetadata.get("schema")).toUpperCase();
         String table = String.valueOf(sourceMetadata.get("table")).toUpperCase();

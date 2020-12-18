@@ -64,7 +64,7 @@ public class DHFEnvelopeSinkRecordConverter implements SinkRecordConverter {
                 sinkRecord,
                 toContent(sinkRecord),
                 addTopicToCollections(sinkRecord.topic(), addTopicToCollections)
-        )));
+        )), sinkRecord.kafkaPartition(), sinkRecord.kafkaOffset());
     }
 
     /**

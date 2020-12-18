@@ -175,7 +175,7 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
                         DocumentWriteOperation writeOperation = new DocumentWriteOperationImpl(DocumentWriteOperation.OperationType.DOCUMENT_WRITE, uri, documentMetadataHandle, writeHandle);
                         List<DocumentWriteOperation> writeOperations = Collections.singletonList(writeOperation);
 
-                        return UpdateOperation.of(deletes, writeOperations);
+                        return UpdateOperation.of(deletes, writeOperations, sinkRecord.kafkaPartition(), sinkRecord.kafkaOffset());
                     case "d": // delete
                         if(sourceMetadata.get(DefaultSourceMetadataExtractor.PREVIOUS_ID) != null) {
                             // this was an update to a non-PK table, uri will be gibberish
@@ -185,7 +185,7 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
                                     .with(DefaultSourceMetadataExtractor.ID, previousId);
                             uri = this.uriFormatter.uri(previousMetadata);
                         }
-                        return UpdateOperation.of(Collections.singleton(uri));
+                        return UpdateOperation.of(Collections.singleton(uri), sinkRecord.kafkaPartition(), sinkRecord.kafkaOffset());
                     default:
                         throw new IllegalArgumentException("op must be one of [ 'c', 'r', 'u', 'd' ]");
                 }
@@ -194,7 +194,7 @@ public class DebeziumOracleSinkRecordConverter extends ConnectSinkRecordConverte
             }
         } else {
             // tombstone message
-            return UpdateOperation.noop();
+            return UpdateOperation.noop(sinkRecord.kafkaPartition(), sinkRecord.kafkaOffset());
         }
 
     }

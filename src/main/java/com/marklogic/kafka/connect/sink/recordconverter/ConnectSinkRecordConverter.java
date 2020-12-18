@@ -87,7 +87,7 @@ public class ConnectSinkRecordConverter implements SinkRecordConverter {
             documentMetadataHandle.getCollections().addAll(this.collections);
         }
 
-        return UpdateOperation.of(Collections.singletonList(new DocumentWriteOperationImpl(DocumentWriteOperation.OperationType.DOCUMENT_WRITE, uri, documentMetadataHandle, writeHandle)));
+        return UpdateOperation.of(Collections.singletonList(new DocumentWriteOperationImpl(DocumentWriteOperation.OperationType.DOCUMENT_WRITE, uri, documentMetadataHandle, writeHandle)), sinkRecord.kafkaPartition(), sinkRecord.kafkaOffset());
     }
 
     protected DocumentMetadataHandle toDocumentMetadata(SinkRecord sinkRecord, Map<String, Object> sourceMetadata) {
