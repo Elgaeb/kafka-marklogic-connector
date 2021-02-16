@@ -65,12 +65,7 @@ public class ConfluentUtil {
             return hash(values);
     }
 
-    public static String hash(Collection<Object> values) {
-        Object valuesArray[] = values.toArray(new Object[values.size()]);
-        return hash(valuesArray);
-    }
-
-    public static String hash(Object... values) {
+    public static String hash(Collection<? extends Object> values) {
         try {
             MessageDigest messageDigest = MessageDigest.getInstance("SHA-1");
 

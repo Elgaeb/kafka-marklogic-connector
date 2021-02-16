@@ -49,7 +49,7 @@ public class CDCRelease2InsertTest extends AbstractIntegrationTest {
         task.put(Collections.singleton(record));
         task.flushAndWait(Collections.emptyMap());
 
-        String expectedUri = ("/myorg/" + SCHEMA_NAME + "/" + TABLE_NAME + "/" + ConfluentUtil.hash(ID_ONE, ID_TWO) + ".json").toLowerCase();
+        String expectedUri = ("/myorg/" + SCHEMA_NAME + "/" + TABLE_NAME + "/" + ConfluentUtil.hash(Arrays.asList(ID_ONE, ID_TWO)) + ".json").toLowerCase();
 
         Map<String, Object> table = extractInstance(SCHEMA_NAME, TABLE_NAME, readJsonDocument(expectedUri));
         assertThat(table.get("valueOne")).isEqualTo("llama");
@@ -73,7 +73,7 @@ public class CDCRelease2InsertTest extends AbstractIntegrationTest {
         task.put(Collections.singleton(record));
         task.flushAndWait(Collections.emptyMap());
 
-        String expectedUri = ("/myorg/" + SCHEMA_NAME + "/" + TABLE_NAME + "/" + ConfluentUtil.hash(ID_ONE, ID_TWO) + ".json").toLowerCase();
+        String expectedUri = ("/myorg/" + SCHEMA_NAME + "/" + TABLE_NAME + "/" + ConfluentUtil.hash(Arrays.asList(ID_ONE, ID_TWO)) + ".json").toLowerCase();
 
         Map<String, Object> table = extractInstance(SCHEMA_NAME, TABLE_NAME, readJsonDocument(expectedUri));
         assertThat(table.get("valueOne")).isEqualTo("llama");
@@ -97,7 +97,7 @@ public class CDCRelease2InsertTest extends AbstractIntegrationTest {
         task.put(Collections.singleton(record));
         task.flushAndWait(Collections.emptyMap());
 
-        String expectedUri = ("/myorg/" + SCHEMA_NAME + "/" + TABLE_NAME + "/" + ConfluentUtil.hash(ID_ONE, ID_TWO) + ".json").toLowerCase();
+        String expectedUri = ("/myorg/" + SCHEMA_NAME + "/" + TABLE_NAME + "/" + ConfluentUtil.hash(Arrays.asList(ID_ONE, ID_TWO)) + ".json").toLowerCase();
 
         Map<String, Object> table = extractInstance(SCHEMA_NAME, TABLE_NAME, readJsonDocument(expectedUri));
         assertThat(table.get("valueOne")).isEqualTo("scorpion");

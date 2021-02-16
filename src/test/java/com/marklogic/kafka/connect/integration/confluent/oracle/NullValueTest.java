@@ -2,6 +2,7 @@ package com.marklogic.kafka.connect.integration.confluent.oracle;
 
 import com.marklogic.kafka.connect.integration.AbstractIntegrationTest;
 import com.marklogic.kafka.connect.sink.MarkLogicSinkTask;
+import com.marklogic.kafka.connect.sink.util.ConfluentUtil;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -10,6 +11,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 
@@ -28,7 +30,7 @@ public class NullValueTest extends AbstractIntegrationTest {
     protected static String SCHEMA_NAME = "SCHEMANAME";
     protected static String TABLE_NAME = "TABLENAME";
     protected static String TOPIC = DATABASE_NAME + "." + SCHEMA_NAME + "." + TABLE_NAME;
-    protected static String EXPECTED_URI = ("/myorg/" + SCHEMA_NAME + "/" + TABLE_NAME + "/7e1c0eda540e8a2715428974c05a3f57b3b0bd6f.json").toLowerCase();
+    protected static String EXPECTED_URI = ("/myorg/" + SCHEMA_NAME + "/" + TABLE_NAME + "/" + ConfluentUtil.hash(Arrays.asList("123", "321")) +  ".json").toLowerCase();
 
     protected static Struct newValue(Schema schema) {
         return new Struct(schema)

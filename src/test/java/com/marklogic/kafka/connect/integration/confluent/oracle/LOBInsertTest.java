@@ -28,7 +28,7 @@ public class LOBInsertTest extends AbstractIntegrationTest {
     protected static String COLUMN_NAME = "COLUMN_CLOB";
     protected static String TOPIC = DATABASE_NAME + "." + SCHEMA_NAME + "." + TABLE_NAME;
     protected static int PK_VALUE = 55349754;
-    protected static String PK_VALUE_ENCODED = ConfluentUtil.hash("" + PK_VALUE);
+    protected static String PK_VALUE_ENCODED = ConfluentUtil.hash(Collections.singletonList("" + PK_VALUE));
 
     protected static String LOREM_IPSUM = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
     protected static String LOREM_IPSUM_BASE64 = Base64.getEncoder().encodeToString(LOREM_IPSUM.getBytes(StandardCharsets.UTF_8));
