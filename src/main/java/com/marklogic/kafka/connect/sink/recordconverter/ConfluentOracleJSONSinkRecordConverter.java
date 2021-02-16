@@ -227,6 +227,9 @@ public class ConfluentOracleJSONSinkRecordConverter implements SinkRecordConvert
                             case "struct":
                                 // these should not occur in the oracle cdc source
                                 break;
+                            case "CLOB":
+                                // clobs are handled through a separate process
+                                break;
                             default:
                                 convertedData.put(columnName, rawValue);
                                 break;

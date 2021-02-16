@@ -16,7 +16,7 @@ public class URIFormatter {
         this.uriCaseConverter = CaseConverter.ofType((String)kafkaConfig.get(MarkLogicSinkConfig.CSRC_URI_CASE));
     }
 
-    public String uri(Map<String, Object> sourceMetadata) {
+    public String uri(Map<String, ? extends Object> sourceMetadata) {
         return this.uriCaseConverter.convert(StringSubstitutor.replace(this.uriFormat, sourceMetadata));
     }
 }

@@ -1,5 +1,6 @@
 package com.marklogic.kafka.connect.sink;
 
+import com.marklogic.kafka.connect.sink.metadata.ConfluentOracleLOBSourceMetadataExtractor;
 import com.marklogic.kafka.connect.sink.metadata.ConfluentOracleSourceMetadataExtractor;
 import com.marklogic.kafka.connect.sink.metadata.DebeziumOracleSourceMetadataExtractor;
 import com.marklogic.kafka.connect.sink.metadata.UUIDSourceMetadataExtractor;
@@ -73,7 +74,7 @@ public class MarkLogicSinkConfig extends AbstractConfig {
 	private static final AlwaysVisibleRecommender CONNECTION_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("DIRECT", "GATEWAY");
 	private static final AlwaysVisibleRecommender SECURITY_CONTEXT_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("digest", "basic", "kerberos", "certificate", "none");
 	private static final AlwaysVisibleRecommender SSL_CONNECTION_TYPE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("none", "simple", "default", "custom");
-	private static final AlwaysVisibleRecommender SOURCE_METADATA_EXTRACTOR_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(DebeziumOracleSourceMetadataExtractor.class, UUIDSourceMetadataExtractor.class, ConfluentOracleSourceMetadataExtractor.class);
+	private static final AlwaysVisibleRecommender SOURCE_METADATA_EXTRACTOR_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(DebeziumOracleSourceMetadataExtractor.class, UUIDSourceMetadataExtractor.class, ConfluentOracleSourceMetadataExtractor.class, ConfluentOracleLOBSourceMetadataExtractor.class);
 	private static final AlwaysVisibleRecommender SINK_RECORD_CONVERTER_RECOMMENDER = (name, parsedConfig) -> Arrays.asList(DHFEnvelopeSinkRecordConverter.class, ConnectSinkRecordConverter.class, DebeziumOracleSinkRecordConverter.class, DHFEnvelopeSinkRecordConverter.class, ConfluentOracleJSONSinkRecordConverter.class);
 	private static final AlwaysVisibleRecommender STRING_CASE_RECOMMENDER = (name, parsedConfig) -> Arrays.asList("as-is", "lower", "upper", "camel");
 

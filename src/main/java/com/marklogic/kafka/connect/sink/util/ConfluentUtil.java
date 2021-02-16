@@ -65,8 +65,8 @@ public class ConfluentUtil {
             return hash(values);
     }
 
-    public static String hash(Collection<String> values) {
-        Object valuesArray[] = values.toArray(new String[values.size()]);
+    public static String hash(Collection<Object> values) {
+        Object valuesArray[] = values.toArray(new Object[values.size()]);
         return hash(valuesArray);
     }
 

@@ -135,13 +135,21 @@ public class MarkLogicSinkTask extends SinkTask {
 	@Override
 	public void stop() {
 		logger.info("Stopping");
-		if (writeBatcher != null) {
-			writeBatcher.flushAndWait();
-			dataMovementManager.stopJob(writeBatcher);
+		try {
+			try {
+				if (writeBatcher != null) {
+					writeBatcher.flushAndWait();
+					dataMovementManager.stopJob(writeBatcher);
+				}
+			} finally {
+				dataMovementManager.release();
+			}
+		} finally {
+			if (databaseClient != null) {
+				databaseClient.release();
+			}
 		}
-		if (databaseClient != null) {
-			databaseClient.release();
-		}
+
 		logger.info("Stopped");
 	}
 

@@ -18,6 +18,7 @@ import com.marklogic.client.query.StructuredQueryDefinition;
 import com.marklogic.kafka.connect.DefaultDatabaseClientConfigBuilder;
 import com.marklogic.kafka.connect.sink.MarkLogicSinkConfig;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -144,7 +145,7 @@ public abstract class AbstractIntegrationTest {
         return table;
     }
 
-//    @AfterEach
+    @AfterEach
     public void cleanup() {
         deleteTestCollections();
     }
